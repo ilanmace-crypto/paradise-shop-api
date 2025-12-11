@@ -153,7 +153,16 @@ const AdminPage = () => {
   const saveChanges = async () => {
     try {
       for (const product of products) {
-        await updateProduct(product.id, product);
+        // Находим category_id по имени категории
+        const matchedCategory = categories.find(
+          (cat) => cat.name === product.category_name
+        );
+        const category_id = matchedCategory ? matchedCategory.id : null;
+
+        await updateProduct(product.id, {
+          ...product,
+          category_id,
+        });
       }
       alert('Изменения сохранены!');
     } catch (err) {
