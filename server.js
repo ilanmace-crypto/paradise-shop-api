@@ -282,12 +282,18 @@ app.get('/api/categories', (req, res) => {
 });
 
 app.post('/api/admin/login', (req, res) => {
-  // Упрощённый вариант: всегда пускаем в админку
-  // TODO: заменить на реальную проверку пароля/пользователя
-  return res.json({
-    success: true,
-    user: { id: 1, username: 'admin', role: 'admin' }
-  });
+  const { password } = req.body;
+
+  // Простейшая защита: фиксированный пароль для админки
+  // В проде можно заменить на проверку хеша в БД
+  if (password === 'paradise251208') {
+    return res.json({
+      success: true,
+      user: { id: 1, username: 'admin', role: 'admin' }
+    });
+  }
+
+  return res.status(401).json({ success: false, error: 'Invalid credentials' });
 });
 
 app.post('/api/orders', (req, res) => {
