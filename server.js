@@ -202,26 +202,18 @@ app.get('/api/categories', (req, res) => {
 });
 
 app.post('/api/admin/login', (req, res) => {
-  const { username, password } = req.body;
+  const { password } = req.body;
 
-  db.get(
-    'SELECT * FROM users WHERE username = ? AND role = ?',
-    [username, 'admin'],
-    (err, user) => {
-      if (err) {
-        return res.status(500).json({ success: false, error: 'Login failed' });
-      }
+  // Простой вариант: пускаем в админку по фиксированному паролю
+  // В проде это нужно будет заменить на нормальную проверку из БД/хеша
+  if (password === 'paradise123') {
+    return res.json({
+      success: true,
+      user: { id: 1, username: 'admin', role: 'admin' }
+    });
+  }
 
-      if (user && user.password_hash === password) {
-        return res.json({
-          success: true,
-          user: { id: user.id, username: user.username, role: user.role }
-        });
-      }
-
-      res.status(401).json({ success: false, error: 'Invalid credentials' });
-    }
-  );
+  return res.status(401).json({ success: false, error: 'Invalid credentials' });
 });
 
 app.post('/api/orders', (req, res) => {
