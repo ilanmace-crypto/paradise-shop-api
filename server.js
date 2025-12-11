@@ -175,6 +175,86 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Create product
+app.post('/api/products', (req, res) => {
+  const { name, description, price, category_id, stock } = req.body;
+
+  const sql = `
+    INSERT INTO products (name, description, price, category_id, stock)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+
+  db.run(
+    sql,
+    [name, description || '', price, category_id || null, stock ?? 0],
+    function (err) {
+      if (err) {
+        console.error('Create product error:', err);
+        return res.status(500).json({ error: 'Failed to create product' });
+      }
+
+      db.get('SELECT * FROM products WHERE id = ?', [this.lastID], (getErr, row) => {
+        if (getErr) {
+          return res.status(500).json({ error: 'Product created but failed to fetch' });
+        }
+        res.status(201).json(row);
+      });
+    }
+  );
+});
+
+// Update product
+app.put('/api/products/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, description, price, category_id, stock } = req.body;
+
+  const sql = `
+    UPDATE products
+    SET name = ?, description = ?, price = ?, category_id = ?, stock = ?
+    WHERE id = ?
+  `;
+
+  db.run(
+    sql,
+    [name, description || '', price, category_id || null, stock ?? 0, id],
+    function (err) {
+      if (err) {
+        console.error('Update product error:', err);
+        return res.status(500).json({ error: 'Failed to update product' });
+      }
+
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+
+      db.get('SELECT * FROM products WHERE id = ?', [id], (getErr, row) => {
+        if (getErr) {
+          return res.status(500).json({ error: 'Product updated but failed to fetch' });
+        }
+        res.json(row);
+      });
+    }
+  );
+});
+
+// Delete product
+app.delete('/api/products/:id', (req, res) => {
+  const { id } = req.params;
+
+  db.run('DELETE FROM products WHERE id = ?', [id], function (err) {
+    if (err) {
+      console.error('Delete product error:', err);
+      return res.status(500).json({ error: 'Failed to delete product' });
+    }
+
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    res.status(204).send();
+  });
+});
+
 // API Routes
 app.get('/api/products', (req, res) => {
   const sql = `
