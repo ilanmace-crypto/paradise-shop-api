@@ -286,6 +286,13 @@ app.post('/api/orders', (req, res) => {
         return res.status(500).json({ success: false, error: 'Failed to create order' });
       }
 
+      // Асинхронно обновляем остатки по вкусам для жидкостей
+      try {
+        updateProductStocksFromOrder(items);
+      } catch (stockErr) {
+        console.error('Failed to update product stocks from order:', stockErr);
+      }
+
       res.json({
         success: true,
         order_id: this.lastID,
@@ -294,6 +301,70 @@ app.post('/api/orders', (req, res) => {
     }
   );
 });
+
+function updateProductStocksFromOrder(items) {
+  if (!Array.isArray(items) || items.length === 0) return;
+
+  items.forEach((item) => {
+    // Обновляем только товары-жидкости с конкретным вкусом
+    if (!item || item.category !== 'liquids' || !item.flavor || !item.id) {
+      return;
+    }
+
+    const productId = item.id;
+    const flavor = item.flavor;
+    const quantity = Number(item.quantity) || 0;
+
+    if (quantity <= 0) {
+      return;
+    }
+
+    db.get('SELECT id, flavors, stock FROM products WHERE id = ?', [productId], (err, product) => {
+      if (err) {
+        console.error('Failed to load product for stock update:', err);
+        return;
+      }
+      if (!product) return;
+
+      let flavorsObj = {};
+      if (product.flavors) {
+        try {
+          flavorsObj = JSON.parse(product.flavors);
+        } catch (parseErr) {
+          console.error('Failed to parse product flavors JSON:', parseErr);
+        }
+      }
+
+      const currentStock = Number(flavorsObj[flavor] || 0);
+      const newStock = Math.max(0, currentStock - quantity);
+
+      if (newStock === 0) {
+        delete flavorsObj[flavor];
+      } else {
+        flavorsObj[flavor] = newStock;
+      }
+
+      const remainingStocks = Object.values(flavorsObj).map((v) => Number(v) || 0);
+      const totalStock = remainingStocks.length
+        ? remainingStocks.reduce((sum, v) => sum + v, 0)
+        : 0;
+
+      const updatedFlavorsJson = Object.keys(flavorsObj).length
+        ? JSON.stringify(flavorsObj)
+        : null;
+
+      db.run(
+        'UPDATE products SET flavors = ?, stock = ? WHERE id = ?',
+        [updatedFlavorsJson, totalStock, productId],
+        (updateErr) => {
+          if (updateErr) {
+            console.error('Failed to update product stock/flavors:', updateErr);
+          }
+        }
+      );
+    });
+  });
+}
 
 // Start server
 async function startServer() {
