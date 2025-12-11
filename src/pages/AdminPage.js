@@ -282,7 +282,7 @@ const AdminPage = () => {
                     </div>
                   </div>
 
-                  {product.category === 'liquids' && (
+                  {(product.category === 'liquids' || (editingProduct === product.id && selectedCategory === 'liquids')) && (
                     <div className="flavors-admin">
                       <h4>Вкусы и количество банок:</h4>
                       
