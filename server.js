@@ -24,81 +24,19 @@ app.get('/api/health', (req, res) => {
 // Initialize database
 async function initDatabase() {
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        description TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(200) NOT NULL,
-        description TEXT,
-        price DECIMAL(10,2) NOT NULL,
-        category_id INTEGER REFERENCES categories(id),
-        stock INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(50) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        email VARCHAR(100),
-        role VARCHAR(20) DEFAULT 'user',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS orders (
-        id SERIAL PRIMARY KEY,
-        customer_name VARCHAR(100) NOT NULL,
-        customer_email VARCHAR(100),
-        customer_phone VARCHAR(20),
-        items TEXT NOT NULL,
-        total_amount DECIMAL(10,2) NOT NULL,
-        status VARCHAR(20) DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Insert sample data if tables are empty
-    const categoryCount = await pool.query('SELECT COUNT(*) FROM categories');
-    if (parseInt(categoryCount.rows[0].count) === 0) {
-      await pool.query(`
-        INSERT INTO categories (name, description) VALUES 
-        ('Электроника', 'Современные электронные устройства'),
-        ('Одежда', 'Модная одежда для всех'),
-        ('Книги', 'Книги на любой вкус')
-      `);
-    }
-
-    const productCount = await pool.query('SELECT COUNT(*) FROM products');
-    if (parseInt(productCount.rows[0].count) === 0) {
-      await pool.query(`
-        INSERT INTO products (name, description, price, category_id, stock) VALUES 
-        ('Смартфон', 'Современный смартфон с отличной камерой', 299.99, 1, 50),
-        ('Ноутбук', 'Мощный ноутбук для работы и игр', 899.99, 1, 25),
-        ('Футболка', 'Хлопковая футболка классического дизайна', 19.99, 2, 100),
-        ('Джинсы', 'Удобные джинсы из денима', 49.99, 2, 75),
-        ('Роман', 'Увлекательный роман современного автора', 14.99, 3, 200)
-      `);
-    }
-
-    const userCount = await pool.query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
-    if (parseInt(userCount.rows[0].count) === 0) {
-      await pool.query(`
-        INSERT INTO users (username, password_hash, email, role) VALUES 
-        ('admin', 'admin123', 'admin@paradise-shop.com', 'admin')
-      `);
-    }
+    console.log('Creating tables...');
+    
+    await pool.query(`CREATE TABLE IF NOT EXISTS categories (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, description TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    console.log('Categories table created');
+    
+    await pool.query(`CREATE TABLE IF NOT EXISTS products (id SERIAL PRIMARY KEY, name VARCHAR(200) NOT NULL, description TEXT, price DECIMAL(10,2) NOT NULL, category_id INTEGER REFERENCES categories(id), stock INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    console.log('Products table created');
+    
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, email VARCHAR(100), role VARCHAR(20) DEFAULT 'user', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    console.log('Users table created');
+    
+    await pool.query(`CREATE TABLE IF NOT EXISTS orders (id SERIAL PRIMARY KEY, customer_name VARCHAR(100) NOT NULL, customer_email VARCHAR(100), customer_phone VARCHAR(20), items TEXT NOT NULL, total_amount DECIMAL(10,2) NOT NULL, status VARCHAR(20) DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+    console.log('Orders table created');
 
     console.log('Database initialized successfully');
   } catch (error) {
