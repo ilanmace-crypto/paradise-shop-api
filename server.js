@@ -115,6 +115,34 @@ function initDatabase() {
 function seedDatabase() {
   return new Promise((resolve, reject) => {
     db.serialize(() => {
+      // Seed categories
+      const categories = [
+        { name: 'Жидкости', description: 'Жидкости для вейпинга' },
+        { name: 'Картриджи', description: 'Сменные картриджи' },
+        { name: 'Одноразовые', description: 'Одноразовые вейпы' }
+      ];
+
+      categories.forEach(cat => {
+        db.get(
+          "SELECT id FROM categories WHERE name = ?",
+          [cat.name],
+          (err, row) => {
+            if (err) return reject(err);
+
+            if (!row) {
+              db.run(
+                "INSERT INTO categories (name, description) VALUES (?, ?)",
+                [cat.name, cat.description],
+                (insertErr) => {
+                  if (insertErr) return reject(insertErr);
+                  console.log(`Category created: ${cat.name}`);
+                }
+              );
+            }
+          }
+        );
+      });
+
       // Default admin user
       db.get(
         "SELECT id FROM users WHERE username = ?",
@@ -153,32 +181,53 @@ app.get('/api/health', (req, res) => {
 
 // Create product
 app.post('/api/products', (req, res) => {
-  const { name, description, price, category_id, stock, flavors } = req.body;
+  const { name, description, price, category, category_id, stock, flavors } = req.body;
 
-  const flavorsJson = flavors ? JSON.stringify(flavors) : null;
-
-  const sql = `
-    INSERT INTO products (name, description, price, category_id, stock, flavors)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `;
-
-  db.run(
-    sql,
-    [name, description || '', price, category_id || null, stock ?? 0, flavorsJson],
-    function (err) {
-      if (err) {
-        console.error('Create product error:', err);
-        return res.status(500).json({ error: 'Failed to create product' });
-      }
-
-      db.get('SELECT * FROM products WHERE id = ?', [this.lastID], (getErr, row) => {
-        if (getErr) {
-          return res.status(500).json({ error: 'Product created but failed to fetch' });
+  // Если передан category (строковый id из фронтенда), ищем соответствующий category_id
+  let finalCategoryId = category_id;
+  if (!finalCategoryId && category) {
+    db.get(
+      'SELECT id FROM categories WHERE name = ?',
+      [category === 'liquids' ? 'Жидкости' : category === 'cartridges' ? 'Картриджи' : category === 'disposable' ? 'Одноразовые' : category],
+      (err, row) => {
+        if (err) {
+          console.error('Error fetching category by name:', err);
+          return res.status(500).json({ error: 'Failed to resolve category' });
         }
-        res.status(201).json(row);
-      });
-    }
-  );
+        finalCategoryId = row ? row.id : null;
+        proceedWithCreate();
+      }
+    );
+  } else {
+    proceedWithCreate();
+  }
+
+  function proceedWithCreate() {
+    const flavorsJson = flavors ? JSON.stringify(flavors) : null;
+
+    const sql = `
+      INSERT INTO products (name, description, price, category_id, stock, flavors)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    db.run(
+      sql,
+      [name, description || '', price, finalCategoryId, stock ?? 0, flavorsJson],
+      function (err) {
+        if (err) {
+          console.error('Create product error:', err);
+          return res.status(500).json({ error: 'Failed to create product' });
+        }
+
+        db.get('SELECT * FROM products WHERE id = ?', [this.lastID], (getErr, row) => {
+          if (getErr) {
+            return res.status(500).json({ error: 'Product created but failed to fetch' });
+          }
+          res.status(201).json(row);
+        });
+      }
+    );
+  }
 });
 
 // Update product
