@@ -51,6 +51,23 @@ export const deleteProduct = async (id) => {
   }
 };
 
+// Orders API
+export const createOrder = async (order) => {
+  const response = await fetch(`${API_BASE_URL}/orders`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(order),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to create order');
+  }
+
+  return response.json();
+};
+
 // Categories API
 export const getCategories = async () => {
   const response = await fetch(`${API_BASE_URL}/categories`);

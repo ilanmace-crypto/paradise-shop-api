@@ -16,7 +16,20 @@ const AdminPage = () => {
     const loadProducts = async () => {
       try {
         const data = await getProducts();
-        setProducts(data);
+        // Проставляем поле category по имени категории из бэкенда,
+        // чтобы корректно работала логика для жидкостей и вкусов
+        const withCategory = data.map((product) => {
+          const matchedCategory = categories.find(
+            (cat) => cat.name === product.category_name
+          );
+
+          return {
+            ...product,
+            category: matchedCategory ? matchedCategory.id : product.category || 'liquids',
+          };
+        });
+
+        setProducts(withCategory);
       } catch (err) {
         console.error('Failed to load products:', err);
       }
@@ -38,7 +51,15 @@ const AdminPage = () => {
       };
 
       const created = await createProduct(newProduct);
-      setProducts(prev => [...prev, created]);
+
+      // Добавляем локальное поле category, чтобы сразу отображались
+      // правильные блоки (например, вкусы для жидкостей)
+      const createdWithCategory = {
+        ...created,
+        category: selectedCategory,
+      };
+
+      setProducts(prev => [...prev, createdWithCategory]);
       setEditingProduct(created.id);
     } catch (err) {
       console.error('Failed to add product:', err);

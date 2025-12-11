@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { createOrder } from '../services/apiService';
 import './CheckoutPage.css';
 
 const CheckoutPage = () => {
-  const { cartItems, getTotalPrice, clearCart, checkout } = useCart();
+  const { cartItems, getTotalPrice, checkout } = useCart();
   const { isAuthenticated } = useAuth();
   const [orderData, setOrderData] = useState({
     name: '',
@@ -15,6 +16,7 @@ const CheckoutPage = () => {
     comment: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -35,25 +37,27 @@ const CheckoutPage = () => {
     setIsSubmitting(true);
 
     try {
-      const order = {
-        id: Date.now(),
+      // Создаём заказ на бэкенде
+      await createOrder({
+        customer_name: orderData.name,
+        customer_email: '',
+        customer_phone: orderData.phone,
         items: cartItems,
-        total: getTotalPrice(),
-        customer: orderData,
-        timestamp: new Date().toISOString()
-      };
+        total_amount: getTotalPrice(),
+      });
 
-      // Отправка уведомления в Telegram
-      await sendTelegramNotification(order);
-      
-      // Сохранение заказа
-      await saveOrder(order);
-      
-      // Обновление остатков
-      checkout();
-      
-      alert('Заказ успешно оформлен! Мы свяжемся с вами в ближайшее время.');
-      
+      // Локальная логика: уведомление в Telegram и история заказов + очистка корзины
+      await checkout({
+        name: orderData.name,
+        phone: orderData.phone,
+        telegramUsername: orderData.telegram,
+        address: orderData.address,
+        paymentMethod: orderData.paymentMethod,
+        comment: orderData.comment,
+      });
+
+      setSuccessMessage('Спасибо за заказ! Мы свяжемся с вами в ближайшее время.');
+
       // Очистка формы
       setOrderData({
         name: '',
@@ -72,48 +76,18 @@ const CheckoutPage = () => {
     }
   };
 
-  const sendTelegramNotification = async (order) => {
-    const message = `
-🛒 НОВЫЙ ЗАКАЗ #${order.id}
-
-👤 Клиент: ${order.customer.name}
-📞 Телефон: ${order.customer.phone}
-📱 Telegram: @${order.customer.telegram}
-📍 Адрес: ${order.customer.address || 'Не указан'}
-💳 Способ оплаты: ${order.customer.paymentMethod === 'card' ? 'Карта' : 'Наличные'}
-💰 Сумма: ${order.total.toFixed(2)} BYN
-
-📦 Товары:
-${order.items.map(item => 
-  `• ${item.name}${item.flavor ? ` (${item.flavor})` : ''} - ${item.quantity} шт.`
-).join('\n')}
-
-💬 Комментарий: ${order.customer.comment || 'Нет'}
-
-⏰ Время: ${new Date(order.timestamp).toLocaleString('ru-RU')}
-    `.trim();
-
-    // Здесь будет реальная отправка в Telegram через API
-    console.log('Telegram notification:', message);
-    
-    // Временное решение - сохранение в localStorage для админа
-    const notifications = JSON.parse(localStorage.getItem('telegram_notifications') || '[]');
-    notifications.push({
-      id: order.id,
-      message,
-      timestamp: order.timestamp,
-      read: false
-    });
-    localStorage.setItem('telegram_notifications', JSON.stringify(notifications));
-  };
-
-  const saveOrder = async (order) => {
-    const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-    orders.push(order);
-    localStorage.setItem('orders', JSON.stringify(orders));
-  };
-
   if (cartItems.length === 0) {
+    if (successMessage) {
+      return (
+        <div className="checkout-page">
+          <div className="container">
+            <h1>Спасибо за заказ</h1>
+            <p>{successMessage}</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="checkout-page">
         <div className="container">
