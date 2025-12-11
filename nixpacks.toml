@@ -9,3 +9,6 @@ cmds = [
 
 [start]
 cmd = "cd server && npm start"
+
+[variables]
+NIXPACKS_NPM_INSTALL_COMMAND = "npm install"
