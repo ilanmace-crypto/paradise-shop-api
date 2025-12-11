@@ -48,12 +48,20 @@ function initDatabase() {
           price REAL NOT NULL,
           category_id INTEGER,
           stock INTEGER DEFAULT 0,
+          flavors TEXT,
           created_at TEXT DEFAULT (datetime('now')),
           FOREIGN KEY (category_id) REFERENCES categories(id)
         )`,
         (err) => {
           if (err) return reject(err);
           console.log('Products table created');
+
+          // На случай уже существующей таблицы без колонки flavors добавляем её через ALTER
+          db.run('ALTER TABLE products ADD COLUMN flavors TEXT', (alterErr) => {
+            if (alterErr && !String(alterErr.message).includes('duplicate column name')) {
+              console.error('Failed to add flavors column:', alterErr);
+            }
+          });
         }
       );
 
@@ -128,39 +136,7 @@ function seedDatabase() {
         }
       );
 
-      // Basic categories
-      db.get('SELECT COUNT(*) as count FROM categories', (err, row) => {
-        if (err) return reject(err);
-
-        if (row.count === 0) {
-          const stmt = db.prepare(
-            'INSERT INTO categories (name, description) VALUES (?, ?)' 
-          );
-          stmt.run('Clothes', 'Clothing and apparel');
-          stmt.run('Accessories', 'Fashion accessories');
-          stmt.run('Electronics', 'Electronic devices and gadgets');
-          stmt.finalize();
-          console.log('Default categories created');
-        }
-      });
-
-      // Basic products
-      db.get('SELECT COUNT(*) as count FROM products', (err, row) => {
-        if (err) return reject(err);
-
-        if (row.count === 0) {
-          const stmt = db.prepare(
-            'INSERT INTO products (name, description, price, category_id, stock) VALUES (?, ?, ?, ?, ?)'
-          );
-          stmt.run('Basic T-Shirt', 'Comfortable cotton t-shirt', 19.99, 1, 100);
-          stmt.run('Stylish Hat', 'Fashionable hat for everyday wear', 29.99, 2, 50);
-          stmt.run('Wireless Earbuds', 'Bluetooth earbuds with charging case', 59.99, 3, 30);
-          stmt.finalize();
-          console.log('Default products created');
-        }
-
-        resolve();
-      });
+      resolve();
     });
   });
 }
@@ -177,16 +153,18 @@ app.get('/api/health', (req, res) => {
 
 // Create product
 app.post('/api/products', (req, res) => {
-  const { name, description, price, category_id, stock } = req.body;
+  const { name, description, price, category_id, stock, flavors } = req.body;
+
+  const flavorsJson = flavors ? JSON.stringify(flavors) : null;
 
   const sql = `
-    INSERT INTO products (name, description, price, category_id, stock)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO products (name, description, price, category_id, stock, flavors)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
 
   db.run(
     sql,
-    [name, description || '', price, category_id || null, stock ?? 0],
+    [name, description || '', price, category_id || null, stock ?? 0, flavorsJson],
     function (err) {
       if (err) {
         console.error('Create product error:', err);
@@ -206,17 +184,19 @@ app.post('/api/products', (req, res) => {
 // Update product
 app.put('/api/products/:id', (req, res) => {
   const { id } = req.params;
-  const { name, description, price, category_id, stock } = req.body;
+  const { name, description, price, category_id, stock, flavors } = req.body;
+
+  const flavorsJson = flavors ? JSON.stringify(flavors) : null;
 
   const sql = `
     UPDATE products
-    SET name = ?, description = ?, price = ?, category_id = ?, stock = ?
+    SET name = ?, description = ?, price = ?, category_id = ?, stock = ?, flavors = ?
     WHERE id = ?
   `;
 
   db.run(
     sql,
-    [name, description || '', price, category_id || null, stock ?? 0, id],
+    [name, description || '', price, category_id || null, stock ?? 0, flavorsJson, id],
     function (err) {
       if (err) {
         console.error('Update product error:', err);
