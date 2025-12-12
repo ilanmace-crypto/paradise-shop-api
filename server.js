@@ -311,8 +311,14 @@ app.get('/api/categories', (req, res) => {
 });
 
 app.post('/api/admin/login', (req, res) => {
-  // Временный вариант: всегда пускаем в админку, без проверки пароля
-  // TODO: вернуть проверку пароля, когда закончим настройку функционала
+  const { password } = req.body || {};
+
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'paradise251208';
+
+  if (password !== ADMIN_PASSWORD) {
+    return res.status(401).json({ success: false, error: 'Invalid password' });
+  }
+
   return res.json({
     success: true,
     user: { id: 1, username: 'admin', role: 'admin' }
