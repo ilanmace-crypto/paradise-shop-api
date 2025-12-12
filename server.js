@@ -313,9 +313,8 @@ app.get('/api/categories', (req, res) => {
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body || {};
 
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'paradise251208';
-
-  if (password !== ADMIN_PASSWORD) {
+  // Жёсткая проверка пароля на стороне бэкенда
+  if (password !== 'paradise251208') {
     return res.status(401).json({ success: false, error: 'Invalid password' });
   }
 
