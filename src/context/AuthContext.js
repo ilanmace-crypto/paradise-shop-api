@@ -20,17 +20,17 @@ export const AuthProvider = ({ children }) => {
   const login = async (password) => {
     try {
       const trimmed = (password || '').trim();
-      const result = await apiLogin(trimmed);
-
-      // backend возвращает { success, user: { id, username, role } }
-      if (result && result.success && result.user && result.user.role === 'admin') {
-        setIsAuthenticated(true);
-        setIsAdmin(true);
-        setUser(result.user);
-        return true;
+      // Жёсткая фронтовая проверка пароля, чтобы не пускать случайных людей в админку
+      if (trimmed !== 'paradise251208') {
+        return false;
       }
 
-      return false;
+      // Если пароль корректен — помечаем пользователя как админа локально
+      const fakeUser = { id: 1, username: 'admin', role: 'admin' };
+      setIsAuthenticated(true);
+      setIsAdmin(true);
+      setUser(fakeUser);
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
