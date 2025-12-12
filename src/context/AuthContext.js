@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (password) => {
     try {
       const trimmed = (password || '').trim();
+      console.log('ADMIN PASS:', JSON.stringify(trimmed));
       // Жёсткая фронтовая проверка пароля, чтобы не пускать случайных людей в админку
       if (trimmed !== 'paradise251208') {
         return false;
