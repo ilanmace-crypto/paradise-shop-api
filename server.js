@@ -312,6 +312,7 @@ app.get('/api/categories', (req, res) => {
 
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body || {};
+  console.log('ADMIN LOGIN REQUEST BODY:', JSON.stringify(req.body));
 
   // Жёсткая проверка пароля на стороне бэкенда
   // Разрешаем два значения, чтобы работали и старый, и новый клиенты
