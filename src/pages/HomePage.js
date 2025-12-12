@@ -153,7 +153,7 @@ const HomePage = () => {
                   <h3 className="product-name">{product.name}</h3>
                   <p className="product-description">{product.description}</p>
                   
-                  {product.category === 'liquids' && product.flavors && (
+                  {product.category === 'liquids' && product.flavors && Object.keys(product.flavors).length > 0 && (
                     <div className="flavor-selector">
                       <label>Выберите вкус:</label>
                       <div className="flavor-dropdown">

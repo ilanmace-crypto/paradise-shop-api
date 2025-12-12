@@ -158,9 +158,10 @@ const AdminPage = () => {
       ...prev,
       [productId]: {
         ...prev[productId],
-        [field]: field === 'stock' ? parseInt(value) || 1 : value
+        [field]: field === 'stock' ? Math.max(1, parseInt(value) || 1) : value
       }
     }));
+    console.log('updateNewFlavorInput', productId, field, value, '=>', newFlavorInputs[productId]);
   };
 
   const saveChanges = async () => {
