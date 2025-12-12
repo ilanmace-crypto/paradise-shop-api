@@ -314,7 +314,8 @@ app.post('/api/admin/login', (req, res) => {
   const { password } = req.body || {};
 
   // Жёсткая проверка пароля на стороне бэкенда
-  if (password !== 'paradise251208') {
+  // Разрешаем два значения, чтобы работали и старый, и новый клиенты
+  if (password !== 'paradise251208' && password !== 'admin') {
     return res.status(401).json({ success: false, error: 'Invalid password' });
   }
 
