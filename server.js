@@ -312,21 +312,38 @@ app.get('/api/categories', (req, res) => {
 
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body || {};
-  console.log('ADMIN LOGIN REQUEST BODY:', JSON.stringify(req.body));
+  
+  // Логируем только длину пароля для безопасности
+  console.log('Login attempt:', { 
+    username: username || 'undefined',
+    passwordLength: password ? password.length : 0,
+    userAgent: req.headers['user-agent']
+  });
 
-  // Проверяем оба поля
-  if (username !== 'admin' || password !== 'paradise251208') {
-    console.log('Invalid login attempt:', { username, password: password ? '***' : 'undefined' });
-    return res.status(401).json({ 
-      success: false, 
-      error: 'Invalid username or password' 
-    });
+  // Жесткая проверка учетных данных
+  const isAuthorized = username === 'admin' && password === 'paradise251208';
+  
+  if (!isAuthorized) {
+    console.log('Access denied for user:', username || 'undefined');
+    // Задержка при неудачной попытке входа для защиты от брутфорса
+    setTimeout(() => {
+      res.status(401).json({ 
+        success: false, 
+        error: 'Неверное имя пользователя или пароль'
+      });
+    }, 500);
+    return;
   }
 
-  console.log('Successful admin login');
-  return res.json({
+  console.log('Successful login for admin');
+  res.json({
     success: true,
-    user: { id: 1, username: 'admin', role: 'admin' }
+    user: { 
+      id: 1, 
+      username: 'admin', 
+      role: 'admin',
+      lastLogin: new Date().toISOString()
+    }
   });
 });
 
