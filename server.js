@@ -311,15 +311,19 @@ app.get('/api/categories', (req, res) => {
 });
 
 app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body || {};
+  const { username, password } = req.body || {};
   console.log('ADMIN LOGIN REQUEST BODY:', JSON.stringify(req.body));
 
-  // Жёсткая проверка пароля на стороне бэкенда
-  // Разрешаем два значения, чтобы работали и старый, и новый клиенты
-  if (password !== 'paradise251208' && password !== 'admin') {
-    return res.status(401).json({ success: false, error: 'Invalid password' });
+  // Проверяем оба поля
+  if (username !== 'admin' || password !== 'paradise251208') {
+    console.log('Invalid login attempt:', { username, password: password ? '***' : 'undefined' });
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Invalid username or password' 
+    });
   }
 
+  console.log('Successful admin login');
   return res.json({
     success: true,
     user: { id: 1, username: 'admin', role: 'admin' }
