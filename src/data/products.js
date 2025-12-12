@@ -26,9 +26,16 @@ export const getProducts = async () => {
           : {};
       }
 
+      // Если категория не проставлена на бэке, но есть вкусы,
+      // считаем товар жидкостью, чтобы работал выбор вкуса.
+      const hasFlavors = flavorsParsed && Object.keys(flavorsParsed).length > 0;
+      const mappedCategory = matchedCategory
+        ? matchedCategory.id
+        : (product.category || (hasFlavors ? 'liquids' : null));
+
       return {
         ...product,
-        category: matchedCategory ? matchedCategory.id : (product.category || null),
+        category: mappedCategory,
         flavors: flavorsParsed,
       };
     });
