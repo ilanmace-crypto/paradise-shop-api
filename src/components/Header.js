@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useUser } from '../context/UserContext';
+import { FiShoppingCart, FiUser, FiLogIn, FiLogOut, FiMenu, FiX } from 'react-icons/fi';
+import { FaUserShield } from 'react-icons/fa';
 import './Header.css';
 
 const Header = () => {
@@ -10,96 +12,164 @@ const Header = () => {
   const { getTotalItems } = useCart();
   const { currentUser } = useUser();
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [password, setPassword] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  useEffect(() => {
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 20;
+      if (isScrolled !== scrolled) {
+        setScrolled(isScrolled);
+      }
+    };
+
+    document.addEventListener('scroll', handleScroll);
+    return () => document.removeEventListener('scroll', handleScroll);
+  }, [scrolled]);
+
+  useEffect(() => {
+    return () => setMobileMenuOpen(false);
+  }, []);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    if (login('admin', password)) {
-      setShowLoginModal(false);
-      setPassword('');
-      setError('');
-    } else {
-      setError('Неверный пароль');
+    setError('');
+    
+    try {
+      const result = await login(loginData.username, loginData.password);
+      if (result?.success) {
+        setShowLoginModal(false);
+        setLoginData({ username: '', password: '' });
+      } else {
+        setError(result?.error || 'Неверный логин или пароль');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Ошибка при входе. Пожалуйста, попробуйте снова.');
     }
   };
 
   const handleLogout = () => {
     logout();
+    setMobileMenuOpen(false);
+  };
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setLoginData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   return (
     <>
-      <header className="header">
+      <header className={`header ${scrolled ? 'scrolled' : ''}`}>
         <div className="container">
-          <Link to="/" className="logo">
-            PARADISE_SHOP
+          <Link to="/" className="logo" onClick={() => setMobileMenuOpen(false)}>
+            VAPE<span>PARADISE</span>
           </Link>
-          <div className="header-actions">
-            <Link to="/cart" className="cart-link">
-              Корзина ({getTotalItems()})
+          
+          <nav className={`nav-links ${mobileMenuOpen ? 'active' : ''}`}>
+            <Link to="/" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
+              Главная
             </Link>
-            {currentUser && (
-              <Link to="/profile" className="admin-link">
-                Личный кабинет
-              </Link>
-            )}
-            {isAuthenticated && isAdmin ? (
+            <Link to="/products" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
+              Товары
+            </Link>
+            <Link to="/cart" className="nav-link cart-link" onClick={() => setMobileMenuOpen(false)}>
+              <FiShoppingCart className="icon" />
+              <span>Корзина</span>
+              {getTotalItems() > 0 && <span className="cart-count">{getTotalItems()}</span>}
+            </Link>
+            
+            {isAuthenticated ? (
               <>
-                <Link to="/admin" className="admin-link">
-                  Админ панель
+                {isAdmin && (
+                  <Link to="/admin" className="nav-link admin-link" onClick={() => setMobileMenuOpen(false)}>
+                    <FaUserShield className="icon" />
+                    <span>Админка</span>
+                  </Link>
+                )}
+                <Link to="/profile" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
+                  <FiUser className="icon" />
+                  <span>Профиль</span>
                 </Link>
-                <button onClick={handleLogout} className="logout-btn">
-                  Выйти
+                <button onClick={handleLogout} className="nav-link logout-btn">
+                  <FiLogOut className="icon" />
+                  <span>Выйти</span>
                 </button>
               </>
             ) : (
               <button 
                 onClick={() => setShowLoginModal(true)} 
-                className="login-btn"
+                className="nav-link login-btn"
               >
-                Вход
+                <FiLogIn className="icon" />
+                <span>Войти</span>
               </button>
             )}
-          </div>
+          </nav>
+          
+          <button 
+            className="mobile-menu-toggle" 
+            onClick={toggleMobileMenu}
+            aria-label={mobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
+          >
+            {mobileMenuOpen ? <FiX /> : <FiMenu />}
+          </button>
         </div>
       </header>
 
-      {showLoginModal && (
-        <div className="login-modal">
-          <div className="login-modal-content">
-            <h3>Вход для администратора</h3>
-            <form onSubmit={handleLogin}>
+      <div className={`modal-overlay ${showLoginModal ? 'active' : ''}`} onClick={() => setShowLoginModal(false)}>
+        <div className="modal" onClick={e => e.stopPropagation()}>
+          <h2>Вход в аккаунт</h2>
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <input
+                type="text"
+                name="username"
+                placeholder="Имя пользователя"
+                value={loginData.username}
+                onChange={handleInputChange}
+                required
+                autoComplete="username"
+              />
+            </div>
+            <div className="form-group">
               <input
                 type="password"
+                name="password"
                 placeholder="Пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={loginData.password}
+                onChange={handleInputChange}
                 required
+                autoComplete="current-password"
               />
-              {error && <div className="error">{error}</div>}
-              <div className="modal-buttons">
-                <button type="submit" className="submit-btn">
-                  Войти
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setShowLoginModal(false);
-                    setPassword('');
-                    setError('');
-                  }}
-                  className="cancel-btn"
-                >
-                  Отмена
-                </button>
-              </div>
-            </form>
-            <div className="login-hint">
-              <p>Подсказка: спроси у администратора</p>
             </div>
+            {error && <div className="error-message">{error}</div>}
+            <button type="submit">Войти</button>
+          </form>
+          <div className="login-hint">
+            <p>Тестовые данные:</p>
+            <p>Логин: <strong>admin</strong></p>
+            <p>Пароль: <strong>paradise251208</strong></p>
           </div>
         </div>
+      </div>
+      
+      {mobileMenuOpen && (
+        <div 
+          className="mobile-menu-overlay" 
+          onClick={() => setMobileMenuOpen(false)}
+        />
       )}
     </>
   );
