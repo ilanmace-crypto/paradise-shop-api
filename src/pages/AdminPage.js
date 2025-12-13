@@ -194,12 +194,22 @@ const AdminPage = () => {
         );
         const category_id = matchedCategory ? matchedCategory.id : null;
 
+        // Создаем payload только с нужными полями
         const payload = {
-          ...product,
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          price: product.price,
           category_id,
-          image: product.image, // Убедимся что изображение включено в payload
+          stock: product.stock,
+          flavors: product.flavors,
+          // Включаем изображение только если оно есть
+          ...(product.image && { image: product.image })
         };
+        
         console.log('Saving product payload:', payload);
+        console.log('Payload keys:', Object.keys(payload));
+        console.log('Has image in payload:', 'image' in payload);
 
         await updateProduct(product.id, payload);
       }
