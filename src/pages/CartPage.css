@@ -252,6 +252,31 @@
   font-size: 14px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color: #111;
+  caret-color: #111;
+  -webkit-text-fill-color: #111;
+  background: #fff;
+}
+
+.checkout-modal .form-input::placeholder {
+  color: #6b7280;
+  -webkit-text-fill-color: #6b7280;
+}
+
+.checkout-modal .form-input::selection {
+  background: rgba(52, 152, 219, 0.2);
+  color: #111;
+}
+
+.checkout-modal .form-input::-moz-selection {
+  background: rgba(52, 152, 219, 0.2);
+  color: #111;
+}
+
+.checkout-modal .form-input:-webkit-autofill {
+  -webkit-text-fill-color: #111 !important;
+  box-shadow: 0 0 0px 1000px #fff inset;
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 .checkout-modal .form-input:focus {
