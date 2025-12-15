@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { memo, useCallback } from 'react';
 import './ProductModal.css';
 
-const ProductModal = ({ product, isOpen, onClose, onAddToCart, selectedFlavor, setSelectedFlavor }) => {
+const ProductModal = memo(({ product, isOpen, onClose, onAddToCart, selectedFlavor, setSelectedFlavor }) => {
   if (!isOpen || !product) return null;
 
   console.log('ProductModal product:', product);
@@ -19,14 +19,14 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart, selectedFlavor, s
 
   console.log('ProductModal parsed flavors:', flavors, 'category:', product.category);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = useCallback(() => {
     if (product.category === 'liquids' && Object.keys(flavors).length > 0 && !selectedFlavor) {
       alert('Пожалуйста, выберите вкус');
       return;
     }
     onAddToCart(product, selectedFlavor);
     onClose();
-  };
+  }, [product, flavors, selectedFlavor, onAddToCart, onClose]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -35,7 +35,7 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart, selectedFlavor, s
         
         <div className="modal-image">
           {product.image ? (
-            <img src={product.image} alt={product.name} />
+            <img src={product.image} alt={product.name} loading="lazy" />
           ) : (
             <div className="no-image">Нет изображения</div>
           )}
@@ -78,6 +78,8 @@ const ProductModal = ({ product, isOpen, onClose, onAddToCart, selectedFlavor, s
       </div>
     </div>
   );
-};
+});
+
+ProductModal.displayName = 'ProductModal';
 
 export default ProductModal;

@@ -707,6 +707,117 @@
   }
 }
 
+/* Улучшенный индикатор загрузки и скелетоны */
+.loading-container {
+  text-align: center;
+  padding: 2rem;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(157, 78, 221, 0.2);
+  border-top: 4px solid #9d4edd;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+.loading-text {
+  color: #ccc;
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.skeleton-card {
+  background: rgba(20, 20, 30, 0.7);
+  border-radius: 15px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.skeleton-image {
+  width: 100%;
+  height: 200px;
+  background: linear-gradient(90deg, #2a2a3e 0%, #3a3a4e 50%, #2a2a3e 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-content {
+  padding: 20px;
+}
+
+.skeleton-title {
+  height: 24px;
+  background: linear-gradient(90deg, #3a3a4e 0%, #4a4a5e 50%, #3a3a4e 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.skeleton-description {
+  height: 16px;
+  background: linear-gradient(90deg, #3a3a4e 0%, #4a4a5e 50%, #3a3a4e 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.skeleton-description::after {
+  content: '';
+  display: block;
+  height: 16px;
+  background: linear-gradient(90deg, #3a3a4e 0%, #4a4a5e 50%, #3a3a4e 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  margin-top: 8px;
+  width: 80%;
+}
+
+.skeleton-price {
+  height: 20px;
+  width: 80px;
+  background: linear-gradient(90deg, #3a3a4e 0%, #4a4a5e 50%, #3a3a4e 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  margin: 15px 0;
+}
+
+.skeleton-button {
+  height: 36px;
+  background: linear-gradient(90deg, #3a3a4e 0%, #4a4a5e 50%, #3a3a4e 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 @media (max-width: 480px) {
   .home-page {
     padding: 90px 5px 20px;
@@ -719,6 +830,11 @@
   .products-grid {
     grid-template-columns: 1fr;
     padding: 0 5px;
+  }
+  
+  .skeleton-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
   
   .product-card {
