@@ -1,64 +1,23 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getProducts, categories } from '../data/products';
+import { categories } from '../data/products';
 import { useCart } from '../context/CartContext';
 import ProductModal from '../components/ProductModal';
-import ProductCard from '../components/ProductCard';
+import VirtualizedProductGrid from '../components/VirtualizedProductGrid';
+import { useOptimizedProducts, useFilteredProducts } from '../hooks/useOptimizedProducts';
 import './HomePage.css';
 
 const HomePage = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [products, setProducts] = useState([]);
   const [selectedFlavors, setSelectedFlavors] = useState({});
   const [flavorModalProductId, setFlavorModalProductId] = useState(null);
   const [imageErrors, setImageErrors] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [modalProduct, setModalProduct] = useState(null);
   const [modalSelectedFlavor, setModalSelectedFlavor] = useState('');
+  
   const { addToCartWithFlavor } = useCart();
-
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const startTime = performance.now();
-        const data = await getProducts();
-        const endTime = performance.now();
-        console.log(`Products loaded in ${endTime - startTime}ms`);
-        setProducts(data);
-      } catch (err) {
-        setError('Не удалось загрузить товары. Попробуйте обновить страницу.');
-        console.error('Failed to load products:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProducts();
-  }, []);
-
-  const filteredProducts = useMemo(() => {
-    const filterFn = (product) => {
-      // Скрываем жидкости, у которых закончились все вкусы
-      if (product.category === 'liquids') {
-        const flavors = product.flavors ? Object.entries(product.flavors) : [];
-        if (flavors.length === 0) return false; // нет вкусов — не показываем
-        const hasStock = flavors.some(([, stock]) => stock > 0);
-        return hasStock;
-      }
-      return true;
-    };
-
-    return selectedCategory === 'all' 
-      ? products.filter(filterFn)
-      : products.filter(product => {
-          const categoryMatch = product.category === selectedCategory;
-          if (!categoryMatch) return false;
-          return filterFn(product);
-        });
-  }, [selectedCategory, products]);
+  const { products, loading, error } = useOptimizedProducts();
+  const filteredProducts = useFilteredProducts(products, selectedCategory);
 
   const handleAddToCart = useCallback((product) => {
     if (product.category === 'liquids' && product.flavors) {
@@ -167,19 +126,14 @@ const HomePage = () => {
               <p>Попробуйте выбрать другую категорию или вернитесь позже</p>
             </div>
           ) : (
-            <div className="products-grid">
-              {filteredProducts.map(product => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  selectedFlavor={selectedFlavors[product.id]}
-                  onFlavorSelect={openFlavorModal}
-                  onAddToCart={handleAddToCart}
-                  onImageError={handleImageError}
-                  imageError={imageErrors[product.id]}
-                />
-              ))}
-            </div>
+            <VirtualizedProductGrid
+              products={filteredProducts}
+              selectedFlavor={selectedFlavors}
+              onFlavorSelect={openFlavorModal}
+              onAddToCart={handleAddToCart}
+              onImageError={handleImageError}
+              imageErrors={imageErrors}
+            />
           )}
         </div>
       </div>

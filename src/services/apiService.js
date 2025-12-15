@@ -1,12 +1,54 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
+// Кэш для API запросов
+const apiCache = new Map();
+const CACHE_TTL = 2 * 60 * 1000; // 2 минуты кэширования
+
+// Оптимизированная функция fetch с кэшированием
+async function cachedFetch(url, options = {}) {
+  const cacheKey = `${url}:${JSON.stringify(options)}`;
+  const cached = apiCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    console.log(`API Cache hit: ${url}`);
+    return cached.data;
+  }
+
+  console.log(`API Cache miss: ${url}`);
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      // Добавляем таймаут
+      signal: AbortSignal.timeout(10000), // 10 секунд таймаут
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Кэшируем успешный ответ
+    apiCache.set(cacheKey, {
+      data,
+      timestamp: Date.now()
+    });
+    
+    return data;
+  } catch (error) {
+    // При ошибке возвращаем устаревшие данные если они есть
+    if (cached) {
+      console.warn(`API failed, returning stale data for: ${url}`);
+      return cached.data;
+    }
+    throw error;
+  }
+}
+
 // Products API
 export const getProducts = async () => {
-  const response = await fetch(`${API_BASE_URL}/products`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch products');
-  }
-  return response.json();
+  return cachedFetch(`${API_BASE_URL}/products`);
 };
 
 export const createProduct = async (product) => {
@@ -16,13 +58,19 @@ export const createProduct = async (product) => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(product),
+    signal: AbortSignal.timeout(10000),
   });
   
   if (!response.ok) {
     throw new Error('Failed to create product');
   }
   
-  return response.json();
+  const result = await response.json();
+  
+  // Очищаем кэш продуктов после создания
+  apiCache.clear();
+  
+  return result;
 };
 
 // Update product image specifically
@@ -71,6 +119,7 @@ export const updateProduct = async (id, updates) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(updates),
+      signal: AbortSignal.timeout(15000), // Больше времени для обновления с изображением
     });
     
     console.log('Update response status:', response.status);
@@ -83,6 +132,10 @@ export const updateProduct = async (id, updates) => {
     
     const result = await response.json();
     console.log('Update successful, result keys:', Object.keys(result));
+    
+    // Очищаем кэш после обновления
+    apiCache.clear();
+    
     return result;
   } catch (error) {
     console.error('Update product error:', error);
@@ -93,11 +146,15 @@ export const updateProduct = async (id, updates) => {
 export const deleteProduct = async (id) => {
   const response = await fetch(`${API_BASE_URL}/products/${id}`, {
     method: 'DELETE',
+    signal: AbortSignal.timeout(10000),
   });
   
   if (!response.ok) {
     throw new Error('Failed to delete product');
   }
+  
+  // Очищаем кэш после удаления
+  apiCache.clear();
 };
 
 // Orders API

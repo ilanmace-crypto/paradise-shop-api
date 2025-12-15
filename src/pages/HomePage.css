@@ -813,6 +813,38 @@
   }
 }
 
+/* Кнопка загрузки большего количества товаров */
+.load-more-container {
+  text-align: center;
+  margin-top: 2rem;
+  padding: 2rem;
+}
+
+.showing-count {
+  color: #ccc;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.load-more-btn {
+  background: linear-gradient(45deg, #9d4edd, #5a189a);
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.load-more-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(157, 78, 221, 0.4);
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
