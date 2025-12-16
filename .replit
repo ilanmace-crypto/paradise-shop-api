@@ -1,0 +1,4 @@
+language = "nodejs"
+run = "node server-replit.js"
+[env]
+PORT = "3000"
