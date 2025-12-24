@@ -4,8 +4,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const apiRoutes = require('./routes/api');
-const adminRoutes = require('./routes/admin');
+const apiRoutes = require('./routes/api_sqlite');
+const adminRoutes = require('./routes/admin_sqlite');
+const { initDatabase } = require('./config/sqlite');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,7 +44,15 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
+  
+  // Initialize SQLite database
+  try {
+    await initDatabase();
+    console.log('SQLite database initialized successfully!');
+  } catch (error) {
+    console.error('Database initialization failed:', error);
+  }
 });
