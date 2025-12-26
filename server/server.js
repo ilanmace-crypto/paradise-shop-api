@@ -103,4 +103,5 @@ app.listen(PORT, () => {
   console.log(`Products API: http://localhost:${PORT}/api/products`);
   console.log(`Trust proxy: ${app.get('trust proxy')}`);
   console.log('Products API ready!');
+  console.log('Server restarted at:', new Date().toISOString());
 });
