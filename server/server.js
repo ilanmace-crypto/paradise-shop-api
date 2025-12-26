@@ -39,6 +39,18 @@ console.log('Admin Routes:', adminRoutes ? 'LOADED' : 'NOT LOADED');
 if (apiRoutes) app.use('/api', apiRoutes);
 if (adminRoutes) app.use('/admin', adminRoutes);
 
+// Debug route
+app.get('/api/debug', (req, res) => {
+  res.json({ 
+    message: 'Debug route working',
+    timestamp: new Date().toISOString(),
+    routes: {
+      api: apiRoutes ? 'loaded' : 'not loaded',
+      admin: adminRoutes ? 'loaded' : 'not loaded'
+    }
+  });
+});
+
 // Health check (before rate limiting)
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
