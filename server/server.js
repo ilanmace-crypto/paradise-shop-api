@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 // Используем PostgreSQL если DATABASE_URL задан
+console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'NOT SET');
 const apiRoutes = process.env.DATABASE_URL ? 
   require('./routes/api_postgresql') : 
   null;
@@ -33,6 +34,8 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // Routes
+console.log('API Routes:', apiRoutes ? 'LOADED' : 'NOT LOADED');
+console.log('Admin Routes:', adminRoutes ? 'LOADED' : 'NOT LOADED');
 if (apiRoutes) app.use('/api', apiRoutes);
 if (adminRoutes) app.use('/admin', adminRoutes);
 
