@@ -1,7 +1,10 @@
 import { productService } from "./services/productService"
 import { useEffect, useMemo, useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import logo from './assets/paradise-shop-logo.svg'
+import AdminLogin from './components/AdminLogin'
+import AdminPanel from './components/AdminPanel'
 
 const TABS = [
   { key: 'liquids', label: 'Жижа' },
@@ -36,6 +39,7 @@ function Header() {
           </div>
         </div>
         <div className="header-actions">
+          <a href="/admin" className="admin-link">Админ</a>
           <button type="button" className="cart-chip" onClick={() => {}}>
             Корзина
           </button>
@@ -372,28 +376,8 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const webApp = window.Telegram?.WebApp
-    if (!webApp) return
-    try {
-      webApp.ready()
-      webApp.expand()
-      
-      // Сохраняем пользователя в базе данных
-      const userData = {
-        telegram_id: webApp.initDataUnsafe?.user?.id?.toString() || "demo_user",
-        username: webApp.initDataUnsafe?.user?.username || "",
-        first_name: webApp.initDataUnsafe?.user?.first_name || "",
-        last_name: webApp.initDataUnsafe?.user?.last_name || ""
-      }
-      
-      ApiService.saveTelegramUser(userData).then(user => {
-        console.log("User saved:", user)
-      }).catch(err => {
-        console.error("Error saving user:", err)
-      })
-    } catch {
-      // ignore
-    }
+    const t = window.setTimeout(() => setLoading(false), 1200)
+    return () => window.clearTimeout(t)
   }, [])
 
   useEffect(() => {
@@ -405,11 +389,6 @@ function App() {
     } catch {
       // ignore
     }
-  }, [])
-
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1200)
-    return () => clearTimeout(timer)
   }, [])
 
   const cartCount = useMemo(() => cartItems.reduce((sum, it) => sum + it.qty, 0), [cartItems])
@@ -502,4 +481,45 @@ function App() {
   )
 }
 
-export default App
+function AppWithRouter() {
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  // Проверка админ аутентификации
+  useEffect(() => {
+    const adminAuth = localStorage.getItem('adminAuth')
+    if (adminAuth) {
+      const { timestamp } = JSON.parse(adminAuth)
+      const now = Date.now()
+      if (now - timestamp < 24 * 60 * 60 * 1000) { // 24 часа
+        setIsAdmin(true)
+      } else {
+        localStorage.removeItem('adminAuth')
+      }
+    }
+  }, [])
+
+  const handleAdminLogin = (password) => {
+    if (password === 'paradise251208') {
+      setIsAdmin(true)
+      localStorage.setItem('adminAuth', JSON.stringify({ timestamp: Date.now() }))
+      return true
+    }
+    return false
+  }
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false)
+    localStorage.removeItem('adminAuth')
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/admin" element={!isAdmin ? <AdminLogin onLogin={handleAdminLogin} /> : <AdminPanel onLogout={handleAdminLogout} />} />
+        <Route path="/*" element={<App />} />
+      </Routes>
+    </Router>
+  )
+}
+
+export default AppWithRouter
