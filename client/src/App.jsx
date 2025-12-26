@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 import logo from './assets/paradise-shop-logo.svg'
+import AdminLogin from './components/AdminLogin'
+import AdminPanel from './components/AdminPanel'
 
 const TABS = [
   { key: 'liquids', label: 'Жижа' },
@@ -56,36 +59,11 @@ function HeaderWithCart({ cartCount, onOpenCart }) {
             <div className="brand-subtitle">Mini App</div>
           </div>
         </div>
-
-        <button type="button" className="cart-chip" onClick={onOpenCart}>
-          <span className="cart-chip-label">Корзина</span>
-          {cartCount > 0 && <span className="cart-chip-badge">{cartCount}</span>}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function SearchBar({ value, onChange, onClear, placeholder }) {
-  return (
-    <div className="search-wrap">
-      <div className="container">
-        <div className="search">
-          <input
-            className="search-input"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder={placeholder}
-          />
-          {value ? (
-            <button type="button" className="search-clear" onClick={onClear} aria-label="Очистить">
-              ×
-            </button>
-          ) : (
-            <div className="search-icon" aria-hidden>
-              ⌕
-            </div>
-          )}
+        <div className="header-actions">
+          <a href="/admin" className="admin-link">Админ</a>
+          <button type="button" className="cart-chip" onClick={onOpenCart}>
+            Корзина {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+          </button>
         </div>
       </div>
     </div>
@@ -95,7 +73,7 @@ function SearchBar({ value, onChange, onClear, placeholder }) {
 function TabBar({ activeTab, onChange }) {
   return (
     <div className="tabbar">
-      <div className="container tabbar-inner">
+      <div className="container">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -157,45 +135,36 @@ function ProductGrid({ title, products, onOpenProduct, query }) {
 }
 
 function ProductModal({ product, onClose, onAdd }) {
-  const isLiquid = product?.category === 'liquids'
-  const flavors = product?.flavors || []
-  const [selectedFlavor, setSelectedFlavor] = useState(isLiquid ? flavors[0] || '' : '')
   const [qty, setQty] = useState(1)
-
-  useEffect(() => {
-    if (!product) return
-    const nextIsLiquid = product.category === 'liquids'
-    const nextFlavors = product.flavors || []
-    setSelectedFlavor(nextIsLiquid ? nextFlavors[0] || '' : '')
-    setQty(1)
-  }, [product])
+  const [selectedFlavor, setSelectedFlavor] = useState(null)
 
   if (!product) return null
 
-  const canAdd = !isLiquid || Boolean(selectedFlavor)
+  const canAdd = qty > 0 && (!Array.isArray(product.flavors) || product.flavors.length === 0 || selectedFlavor)
 
   return (
-    <div className={`modal-overlay ${product ? 'active' : ''}`} role="dialog" aria-modal="true" onMouseDown={onClose}>
-      <div className="modal" onMouseDown={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">{product.name}</div>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
+          <button type="button" className="modal-close" onClick={onClose}>
             ×
           </button>
         </div>
 
         <div className="modal-body">
-          <div className="modal-thumb" />
-          <div className="modal-row">
-            <div className="modal-price">{product.price} BYN</div>
-            <div className="muted">В наличии</div>
+          <div className="section">
+            <div className="section-title">Цена</div>
+            <div className="price-display">
+              {product.price} BYN
+            </div>
           </div>
 
-          {isLiquid && (
+          {Array.isArray(product.flavors) && product.flavors.length > 0 && (
             <div className="section">
-              <div className="section-title">Выбери вкус</div>
-              <div className="chips">
-                {flavors.map((f) => (
+              <div className="section-title">Вкус</div>
+              <div className="flavor-chips">
+                {product.flavors.map((f) => (
                   <button
                     key={f}
                     type="button"
@@ -346,7 +315,7 @@ function ReviewsPlaceholder() {
   )
 }
 
-function App() {
+function MainApp() {
   const [activeTab, setActiveTab] = useState('liquids')
   const [loading, setLoading] = useState(true)
   const [activeProduct, setActiveProduct] = useState(null)
@@ -355,14 +324,27 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [products, setProducts] = useState([])
 
-  // Простая загрузка без API
+  // Загрузка товаров с API
   useEffect(() => {
-    const t = window.setTimeout(() => {
-      setLoading(false)
-      // Временно добавим пустые товары чтобы сайт работал
-      setProducts([])
-    }, 1000)
-    return () => window.clearTimeout(t)
+    const loadProducts = async () => {
+      try {
+        const response = await fetch('/api/products')
+        if (response.ok) {
+          const productsData = await response.json()
+          setProducts(productsData)
+        }
+      } catch (error) {
+        console.error('Error loading products:', error)
+        // Если API не работает, добавим тестовые товары
+        setProducts([
+          { id: 1, name: 'Тестовый товар 1', price: 25, category: 'liquids' },
+          { id: 2, name: 'Тестовый товар 2', price: 30, category: 'consumables' },
+        ])
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadProducts()
   }, [])
 
   useEffect(() => {
@@ -403,66 +385,99 @@ function App() {
   const decItem = (item) => {
     setCartItems((prev) =>
       prev
-        .map((x) => (x.key === item.key ? { ...x, qty: Math.max(0, x.qty - 1) } : x))
+        .map((x) => (x.key === item.key ? { ...x, qty: x.qty - 1 } : x))
         .filter((x) => x.qty > 0)
     )
   }
 
   const incItem = (item) => {
-    setCartItems((prev) => prev.map((x) => (x.key === item.key ? { ...x, qty: x.qty + 1 } : x)))
+    setCartItems((prev) =>
+      prev.map((x) => (x.key === item.key ? { ...x, qty: x.qty + 1 } : x))
+    )
   }
 
   const removeItem = (item) => {
     setCartItems((prev) => prev.filter((x) => x.key !== item.key))
   }
 
-  useEffect(() => {
-    setSearchQuery('')
-  }, [activeTab])
-
   return (
-    <div className="app-shell">
+    <div className="app">
       <Preloader visible={loading} />
       <HeaderWithCart cartCount={cartCount} onOpenCart={() => setCartOpen(true)} />
-
-      {activeTab !== 'reviews' && (
-        <SearchBar
-          value={searchQuery}
-          onChange={setSearchQuery}
-          onClear={() => setSearchQuery('')}
-          placeholder="Поиск по названию или вкусу…"
-        />
-      )}
-
-      {activeTab === 'liquids' && (
-        <ProductGrid
-          title="Жидкости"
-          products={products.filter(p => p.category === 'liquids')}
-          onOpenProduct={(p) => setActiveProduct(p)}
-          query={searchQuery}
-        />
-      )}
-      {activeTab === 'consumables' && (
-        <ProductGrid
-          title="Расходники"
-          products={products.filter(p => p.category === 'consumables')}
-          onOpenProduct={(p) => setActiveProduct(p)}
-          query={searchQuery}
-        />
-      )}
-      {activeTab === 'reviews' && <ReviewsPlaceholder />}
-      <TabBar activeTab={activeTab} onChange={setActiveTab} />
-      <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} onAdd={addToCart} />
-      <CartDrawer
-        open={cartOpen}
-        items={cartItems}
-        onClose={() => setCartOpen(false)}
-        onDec={decItem}
-        onInc={incItem}
-        onRemove={removeItem}
-        onClear={() => setCartItems([])}
-      />
+      <main className="main">
+        <div className="container">
+          {activeTab === 'liquids' && (
+            <ProductGrid
+              title="Жидкости"
+              products={products.filter(p => p.category === 'liquids')}
+              onOpenProduct={(p) => setActiveProduct(p)}
+              query={searchQuery}
+            />
+          )}
+          {activeTab === 'consumables' && (
+            <ProductGrid
+              title="Расходники"
+              products={products.filter(p => p.category === 'consumables')}
+              onOpenProduct={(p) => setActiveProduct(p)}
+              query={searchQuery}
+            />
+          )}
+          {activeTab === 'reviews' && <ReviewsPlaceholder />}
+          <TabBar activeTab={activeTab} onChange={setActiveTab} />
+          <ProductModal product={activeProduct} onClose={() => setActiveProduct(null)} onAdd={addToCart} />
+          <CartDrawer
+            open={cartOpen}
+            items={cartItems}
+            onClose={() => setCartOpen(false)}
+            onDec={decItem}
+            onInc={incItem}
+            onRemove={removeItem}
+            onClear={() => setCartItems([])}
+          />
+        </div>
+      </main>
     </div>
+  )
+}
+
+function App() {
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  // Проверка админ аутентификации
+  useEffect(() => {
+    const adminAuth = localStorage.getItem('adminAuth')
+    if (adminAuth) {
+      const { timestamp } = JSON.parse(adminAuth)
+      const now = Date.now()
+      if (now - timestamp < 24 * 60 * 60 * 1000) { // 24 часа
+        setIsAdmin(true)
+      } else {
+        localStorage.removeItem('adminAuth')
+      }
+    }
+  }, [])
+
+  const handleAdminLogin = (password) => {
+    if (password === 'paradise251208') {
+      setIsAdmin(true)
+      localStorage.setItem('adminAuth', JSON.stringify({ timestamp: Date.now() }))
+      return true
+    }
+    return false
+  }
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false)
+    localStorage.removeItem('adminAuth')
+  }
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/admin" element={!isAdmin ? <AdminLogin onLogin={handleAdminLogin} /> : <AdminPanel onLogout={handleAdminLogout} />} />
+        <Route path="/*" element={<MainApp />} />
+      </Routes>
+    </Router>
   )
 }
 

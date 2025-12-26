@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import './AdminPanel.css';
-import { productService } from '../services/productService';
 
 const AdminPanel = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('products');
@@ -21,17 +20,33 @@ const AdminPanel = ({ onLogout }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [productsData, ordersData, usersData, statsData] = await Promise.all([
-        productService.getProducts(),
-        productService.getOrders(),
-        productService.getUsers(),
-        productService.getStats(),
-      ]);
+      // Загрузка товаров
+      const productsResponse = await fetch('/api/products');
+      if (productsResponse.ok) {
+        const productsData = await productsResponse.json();
+        setProducts(productsData);
+      }
       
-      setProducts(productsData);
-      setOrders(ordersData);
-      setUsers(usersData);
-      setStats(statsData);
+      // Загрузка заказов
+      const ordersResponse = await fetch('/api/orders');
+      if (ordersResponse.ok) {
+        const ordersData = await ordersResponse.json();
+        setOrders(ordersData);
+      }
+      
+      // Загрузка пользователей
+      const usersResponse = await fetch('/api/users');
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        setUsers(usersData);
+      }
+      
+      // Загрузка статистики
+      const statsResponse = await fetch('/api/stats');
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        setStats(statsData);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -41,9 +56,21 @@ const AdminPanel = ({ onLogout }) => {
 
   const handleAddProduct = async (product) => {
     try {
-      const newProduct = await productService.addProduct(product);
-      setProducts([...products, newProduct]);
-      setShowAddProduct(false);
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(product),
+      });
+      
+      if (response.ok) {
+        const newProduct = await response.json();
+        setProducts([...products, newProduct]);
+        setShowAddProduct(false);
+      } else {
+        throw new Error('Failed to add product');
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -51,18 +78,39 @@ const AdminPanel = ({ onLogout }) => {
 
   const handleEditProduct = async (product) => {
     try {
-      const updatedProduct = await productService.updateProduct(product.id, product);
-      setProducts(products.map(p => p.id === product.id ? updatedProduct : p));
-      setEditingProduct(null);
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(product),
+      });
+      
+      if (response.ok) {
+        const updatedProduct = await response.json();
+        setProducts(products.map(p => p.id === product.id ? updatedProduct : p));
+        setEditingProduct(null);
+      } else {
+        throw new Error('Failed to update product');
+      }
     } catch (err) {
       setError(err.message);
     }
   };
 
   const handleDeleteProduct = async (id) => {
+    if (!confirm('Удалить товар?')) return;
+    
     try {
-      await productService.deleteProduct(id);
-      setProducts(products.filter(p => p.id !== id));
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        setProducts(products.filter(p => p.id !== id));
+      } else {
+        throw new Error('Failed to delete product');
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -70,8 +118,19 @@ const AdminPanel = ({ onLogout }) => {
 
   const handleUpdateOrderStatus = async (orderId, status) => {
     try {
-      await productService.updateOrderStatus(orderId, status);
-      setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o));
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (response.ok) {
+        setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o));
+      } else {
+        throw new Error('Failed to update order status');
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -96,10 +155,10 @@ const AdminPanel = ({ onLogout }) => {
             <div key={product.id} className="product-card">
               <div className="product-info">
                 <h4>{product.name}</h4>
-                <p className="price">${product.price}</p>
+                <p className="price">{product.price} BYN</p>
                 <p className="category">{product.category === 'liquids' ? 'Жидкости' : 'Расходники'}</p>
                 {product.flavor && <p className="flavor">Вкус: {product.flavor}</p>}
-                <p className="stock">На складе: {product.stock}</p>
+                <p className="stock">На складе: {product.stock || 0}</p>
               </div>
               <div className="product-actions">
                 <button onClick={() => setEditingProduct(product)} className="btn-edit">
@@ -152,12 +211,12 @@ const AdminPanel = ({ onLogout }) => {
               {orders.map(order => (
                 <tr key={order.id}>
                   <td>#{order.id}</td>
-                  <td>{order.customer}</td>
-                  <td>{order.items}</td>
-                  <td>${order.total}</td>
+                  <td>{order.customer || 'Не указано'}</td>
+                  <td>{order.items || 0} шт.</td>
+                  <td>{order.total || 0} BYN</td>
                   <td>
                     <select 
-                      value={order.status} 
+                      value={order.status || 'pending'} 
                       onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
                       className="status-select"
                     >
@@ -167,7 +226,7 @@ const AdminPanel = ({ onLogout }) => {
                       <option value="cancelled">Отменен</option>
                     </select>
                   </td>
-                  <td>{order.date}</td>
+                  <td>{order.date || new Date().toLocaleDateString()}</td>
                   <td>
                     <button className="btn-view">Просмотр</button>
                   </td>
@@ -192,10 +251,10 @@ const AdminPanel = ({ onLogout }) => {
           {users.map(user => (
             <div key={user.id} className="user-card">
               <div className="user-info">
-                <h4>{user.name}</h4>
-                <p className="email">{user.email}</p>
-                <p className="orders">Заказы: {user.orders}</p>
-                <p className="total">Покупки: ${user.total}</p>
+                <h4>{user.name || 'Пользователь'}</h4>
+                <p className="email">{user.email || 'Нет email'}</p>
+                <p className="orders">Заказы: {user.orders || 0}</p>
+                <p className="total">Покупки: {user.total || 0} BYN</p>
               </div>
               <div className="user-actions">
                 <button className="btn-view">Профиль</button>
@@ -224,7 +283,7 @@ const AdminPanel = ({ onLogout }) => {
             </div>
             <div className="stat-card">
               <h4>Общая выручка</h4>
-              <p className="stat-number">${stats?.totalRevenue || 0}</p>
+              <p className="stat-number">{stats?.totalRevenue || 0} BYN</p>
             </div>
             <div className="stat-card">
               <h4>Пользователи</h4>
@@ -232,7 +291,7 @@ const AdminPanel = ({ onLogout }) => {
             </div>
             <div className="stat-card">
               <h4>Средний чек</h4>
-              <p className="stat-number">${stats?.avgOrderValue || 0}</p>
+              <p className="stat-number">{stats?.avgOrderValue || 0} BYN</p>
             </div>
           </div>
           
@@ -331,7 +390,7 @@ function ProductForm({ product, onSubmit, onCancel }) {
             />
           </div>
           <div className="form-group">
-            <label>Цена ($)</label>
+            <label>Цена (BYN)</label>
             <input
               type="number"
               value={formData.price}
