@@ -4,13 +4,10 @@ require('dotenv').config();
 // Supabase PostgreSQL configuration
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-    sslmode: 'require'
-  },
-  max: 10,
+  ssl: false, // Отключаем SSL для теста
+  max: 5,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 10000,
+  connectionTimeoutMillis: 15000,
 });
 
 // Test connection
