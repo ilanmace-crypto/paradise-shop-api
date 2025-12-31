@@ -328,7 +328,7 @@ function MainApp() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const response = await fetch('https://paradise-shop-production.up.railway.app/api/products');
+        const response = await fetch('/api/products');
         if (response.ok) {
           const productsData = await response.json();
           setProducts(productsData);
@@ -445,30 +445,19 @@ function App() {
 
   // Проверка админ аутентификации
   useEffect(() => {
-    const adminAuth = localStorage.getItem('adminAuth')
-    if (adminAuth) {
-      const { timestamp } = JSON.parse(adminAuth)
-      const now = Date.now()
-      if (now - timestamp < 24 * 60 * 60 * 1000) { // 24 часа
-        setIsAdmin(true)
-      } else {
-        localStorage.removeItem('adminAuth')
-      }
+    const adminToken = localStorage.getItem('adminToken')
+    if (adminToken) {
+      setIsAdmin(true)
     }
   }, [])
 
-  const handleAdminLogin = (password) => {
-    if (password === 'paradise251208') {
-      setIsAdmin(true)
-      localStorage.setItem('adminAuth', JSON.stringify({ timestamp: Date.now() }))
-      return true
-    }
-    return false
+  const handleAdminLogin = (adminData) => {
+    setIsAdmin(true)
   }
 
   const handleAdminLogout = () => {
     setIsAdmin(false)
-    localStorage.removeItem('adminAuth')
+    localStorage.removeItem('adminToken')
   }
 
   return (

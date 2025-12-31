@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './AdminLogin.css';
 
 const AdminLogin = ({ onLogin }) => {
+  const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -11,11 +12,25 @@ const AdminLogin = ({ onLogin }) => {
     setLoading(true);
     setError('');
     
-    const success = onLogin(password);
-    
-    if (!success) {
-      setError('Неверный пароль');
-      setPassword('');
+    try {
+      const response = await fetch('/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('adminToken', data.token);
+        onLogin(data.admin);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Ошибка входа');
+      }
+    } catch (err) {
+      setError('Ошибка соединения с сервером');
     }
     
     setLoading(false);
@@ -30,6 +45,17 @@ const AdminLogin = ({ onLogin }) => {
         </div>
         
         <form onSubmit={handleSubmit} className="admin-login-form">
+          <div className="form-group">
+            <label>Логин</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Введите логин"
+              required
+            />
+          </div>
+          
           <div className="form-group">
             <label>Пароль</label>
             <input

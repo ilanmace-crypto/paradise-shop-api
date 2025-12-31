@@ -22,10 +22,10 @@ const AdminPanel = ({ onLogout }) => {
     try {
       // Загрузка всех данных с реального API
       const [productsResponse, ordersResponse, usersResponse, statsResponse] = await Promise.all([
-        fetch('https://paradise-shop-production.up.railway.app/api/products'),
-        fetch('https://paradise-shop-production.up.railway.app/api/orders'),
-        fetch('https://paradise-shop-production.up.railway.app/api/users'),
-        fetch('https://paradise-shop-production.up.railway.app/api/stats')
+        fetch('/api/products'),
+        fetch('/api/orders'),
+        fetch('/api/users'),
+        fetch('/admin/stats')
       ]);
       
       if (productsResponse.ok) {
@@ -57,10 +57,12 @@ const AdminPanel = ({ onLogout }) => {
 
   const handleAddProduct = async (product) => {
     try {
-      const response = await fetch('https://paradise-shop-production.up.railway.app/api/products', {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch('/admin/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(product),
       });
@@ -79,10 +81,12 @@ const AdminPanel = ({ onLogout }) => {
 
   const handleEditProduct = async (product) => {
     try {
-      const response = await fetch(`https://paradise-shop-production.up.railway.app/api/products/${product.id}`, {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/admin/products/${product.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(product),
       });
@@ -103,8 +107,12 @@ const AdminPanel = ({ onLogout }) => {
     if (!confirm('Удалить товар?')) return;
     
     try {
-      const response = await fetch(`https://paradise-shop-production.up.railway.app/api/products/${id}`, {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/admin/products/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
       
       if (response.ok) {
@@ -119,10 +127,12 @@ const AdminPanel = ({ onLogout }) => {
 
   const handleUpdateOrderStatus = async (orderId, status) => {
     try {
-      const response = await fetch(`https://paradise-shop-production.up.railway.app/api/orders/${orderId}/status`, {
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`/admin/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ status }),
       });
