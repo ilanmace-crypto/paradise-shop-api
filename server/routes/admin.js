@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const pool = require('../config/database');
+const pool = require('../config/supabase');
 const { authenticateToken, generateToken } = require('../middleware/auth');
 
 // Авторизация админа (временная для теста)
@@ -24,33 +24,34 @@ router.post('/login', async (req, res) => {
     
     // Если база данных доступна, проверяем через нее
     try {
-      const [admin] = await pool.execute(
-        'SELECT * FROM admins WHERE username = ?',
+      const result = await pool.query(
+        'SELECT * FROM admins WHERE username = $1',
         [username]
       );
       
-      if (admin.length === 0) {
+      if (result.rows.length === 0) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
       
-      const isValid = await bcrypt.compare(password, admin[0].password_hash);
+      const admin = result.rows[0];
+      const isValid = await bcrypt.compare(password, admin.password_hash);
       if (!isValid) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
       
       // Обновляем время последнего входа
-      await pool.execute(
-        'UPDATE admins SET last_login = NOW() WHERE id = ?',
-        [admin[0].id]
+      await pool.query(
+        'UPDATE admins SET last_login = NOW() WHERE id = $1',
+        [admin.id]
       );
       
-      const token = generateToken(admin[0].username, admin[0].role);
+      const token = generateToken(admin.username, admin.role);
       res.json({
         token,
         admin: {
-          id: admin[0].id,
-          username: admin[0].username,
-          role: admin[0].role
+          id: admin.id,
+          username: admin.username,
+          role: admin.role
         }
       });
     } catch (dbError) {
@@ -66,7 +67,7 @@ router.post('/login', async (req, res) => {
 // Получение статистики
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
-    const [ordersStats] = await pool.execute(`
+    const ordersStats = await pool.query(`
       SELECT 
         COUNT(*) as total_orders,
         SUM(total_amount) as total_revenue,
@@ -75,23 +76,23 @@ router.get('/stats', authenticateToken, async (req, res) => {
       FROM orders
     `);
     
-    const [usersCount] = await pool.execute(
+    const usersCount = await pool.query(
       'SELECT COUNT(*) as count FROM users'
     );
     
-    const [productsCount] = await pool.execute(
+    const productsCount = await pool.query(
       'SELECT COUNT(*) as count FROM products WHERE is_active = true'
     );
     
-    const [reviewsCount] = await pool.execute(
+    const reviewsCount = await pool.query(
       'SELECT COUNT(*) as count FROM reviews WHERE is_approved = true'
     );
     
     res.json({
-      orders: ordersStats[0],
-      users: usersCount[0],
-      products: productsCount[0],
-      reviews: reviewsCount[0]
+      orders: ordersStats.rows[0],
+      users: usersCount.rows[0],
+      products: productsCount.rows[0],
+      reviews: reviewsCount.rows[0]
     });
   } catch (error) {
     console.error('Stats error:', error);
@@ -102,25 +103,26 @@ router.get('/stats', authenticateToken, async (req, res) => {
 // Получение всех заказов
 router.get('/orders', authenticateToken, async (req, res) => {
   try {
-    const [orders] = await pool.execute(`
-      SELECT o.*, u.telegram_username, u.telegram_first_name,
-             JSON_ARRAYAGG(
-               JSON_OBJECT(
-                 'product_name', p.name,
-                 'flavor_name', oi.flavor_name,
-                 'quantity', oi.quantity,
-                 'price', oi.price
-               )
-             ) as items
+    const orders = await pool.query(`
+      SELECT o.*, u.telegram_username, u.telegram_first_name
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN products p ON oi.product_id = p.id
-      GROUP BY o.id
       ORDER BY o.created_at DESC
     `);
     
-    res.json(orders);
+    // Получаем товары для каждого заказа
+    for (let order of orders.rows) {
+      const items = await pool.query(`
+        SELECT oi.*, p.name as product_name
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        WHERE oi.order_id = $1
+      `, [order.id]);
+      
+      order.items = items.rows;
+    }
+    
+    res.json(orders.rows);
   } catch (error) {
     console.error('Orders error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -133,8 +135,8 @@ router.put('/orders/:id/status', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
     
-    await pool.execute(
-      'UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?',
+    await pool.query(
+      'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2',
       [status, id]
     );
     
@@ -148,7 +150,7 @@ router.put('/orders/:id/status', authenticateToken, async (req, res) => {
 // Получение всех товаров (для админа)
 router.get('/products', authenticateToken, async (req, res) => {
   try {
-    const [products] = await pool.execute(`
+    const products = await pool.query(`
       SELECT p.*, c.name as category_name
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
@@ -156,15 +158,15 @@ router.get('/products', authenticateToken, async (req, res) => {
     `);
     
     // Получение вкусов для каждого товара
-    for (let product of products) {
-      const [flavors] = await pool.execute(
-        'SELECT * FROM product_flavors WHERE product_id = ?',
+    for (let product of products.rows) {
+      const flavors = await pool.query(
+        'SELECT * FROM product_flavors WHERE product_id = $1',
         [product.id]
       );
-      product.flavors = flavors;
+      product.flavors = flavors.rows;
     }
     
-    res.json(products);
+    res.json(products.rows);
   } catch (error) {
     console.error('Products error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -176,18 +178,18 @@ router.post('/products', authenticateToken, async (req, res) => {
   try {
     const { name, category_id, price, description, stock, flavors } = req.body;
     
-    const [result] = await pool.execute(`
-      INSERT INTO products (name, category_id, price, description, stock)
-      VALUES (?, ?, ?, ?, ?)
-    `, [name, category_id, price, description, stock]);
+    const product_id = `product-${Date.now()}`;
     
-    const product_id = result.insertId;
+    await pool.query(`
+      INSERT INTO products (id, name, category_id, price, description, stock)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [product_id, name, category_id, price, description, stock]);
     
     // Добавляем вкусы если есть
     if (flavors && flavors.length > 0) {
       for (let flavor of flavors) {
-        await pool.execute(
-          'INSERT INTO product_flavors (product_id, flavor_name, stock) VALUES (?, ?, ?)',
+        await pool.query(
+          'INSERT INTO product_flavors (product_id, flavor_name, stock) VALUES ($1, $2, $3)',
           [product_id, flavor.name, flavor.stock]
         );
       }
@@ -206,10 +208,10 @@ router.put('/products/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { name, category_id, price, description, stock, is_active } = req.body;
     
-    await pool.execute(`
+    await pool.query(`
       UPDATE products 
-      SET name = ?, category_id = ?, price = ?, description = ?, stock = ?, is_active = ?, updated_at = NOW()
-      WHERE id = ?
+      SET name = $1, category_id = $2, price = $3, description = $4, stock = $5, is_active = $6, updated_at = NOW()
+      WHERE id = $7
     `, [name, category_id, price, description, stock, is_active, id]);
     
     res.json({ message: 'Product updated' });
@@ -222,14 +224,14 @@ router.put('/products/:id', authenticateToken, async (req, res) => {
 // Получение отзывов (для модерации)
 router.get('/reviews', authenticateToken, async (req, res) => {
   try {
-    const [reviews] = await pool.execute(`
+    const reviews = await pool.query(`
       SELECT r.*, p.name as product_name, u.telegram_username
       FROM reviews r
       LEFT JOIN products p ON r.product_id = p.id
       LEFT JOIN users u ON r.user_id = u.id
       ORDER BY r.created_at DESC
     `);
-    res.json(reviews);
+    res.json(reviews.rows);
   } catch (error) {
     console.error('Reviews error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -242,8 +244,8 @@ router.put('/reviews/:id/approve', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { is_approved } = req.body;
     
-    await pool.execute(
-      'UPDATE reviews SET is_approved = ?, updated_at = NOW() WHERE id = ?',
+    await pool.query(
+      'UPDATE reviews SET is_approved = $1, updated_at = NOW() WHERE id = $2',
       [is_approved, id]
     );
     
@@ -259,7 +261,7 @@ router.delete('/reviews/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     
-    await pool.execute('DELETE FROM reviews WHERE id = ?', [id]);
+    await pool.query('DELETE FROM reviews WHERE id = $1', [id]);
     
     res.json({ message: 'Review deleted' });
   } catch (error) {
