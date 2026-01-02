@@ -157,9 +157,24 @@ router.post('/', async (req, res) => {
       
       await client.query('COMMIT');
 
+      // Get product names for Telegram notification
+      const itemsWithNames = await Promise.all(
+        (items || []).map(async (it) => {
+          const productResult = await client.query(
+            'SELECT name FROM products WHERE id = $1',
+            [it.product_id]
+          );
+          const productName = productResult.rows[0]?.name || it.product_id;
+          return {
+            ...it,
+            name: productName
+          };
+        })
+      );
+
       // Telegram notification (best-effort)
-      const lines = (items || []).map((it) => {
-        const name = it.name || it.product_name || it.product_id;
+      const lines = itemsWithNames.map((it) => {
+        const name = it.name;
         const fl = it.flavor_name ? ` (${it.flavor_name})` : '';
         return `- ${name}${fl} x${it.quantity} = ${Number(it.price || 0) * Number(it.quantity || 0)} BYN`;
       });
