@@ -113,6 +113,9 @@ const AdminPanel = ({ onLogout }) => {
   const handleAddProduct = async (product) => {
     try {
       const token = localStorage.getItem('adminToken');
+      if (!token) {
+        throw new Error('No authentication token');
+      }
       const response = await fetch('/admin/products', {
         method: 'POST',
         headers: {
@@ -124,7 +127,8 @@ const AdminPanel = ({ onLogout }) => {
       
       if (response.ok) {
         const newProduct = await response.json();
-        setProducts([...products, normalizeProduct(newProduct)]);
+        setProducts((prev) => [...prev, normalizeProduct(newProduct)]);
+        await loadData();
         setShowAddProduct(false);
       } else if (response.status === 401) {
         localStorage.removeItem('adminToken');
@@ -135,6 +139,7 @@ const AdminPanel = ({ onLogout }) => {
       }
     } catch (err) {
       setError(err.message);
+      throw err;
     }
   };
 
@@ -443,13 +448,21 @@ function ProductForm({ product, onSubmit, onCancel }) {
     stock: product?.stock || '',
   });
 
-  const handleSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit({
-      ...formData,
-      price: Number(formData.price),
-      stock: Number(formData.stock),
-    });
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onSubmit({
+        ...formData,
+        price: Number(formData.price),
+        stock: Number(formData.stock),
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -510,7 +523,7 @@ function ProductForm({ product, onSubmit, onCancel }) {
           </div>
           <div className="form-actions">
             <button type="submit" className="btn-primary">
-              {product ? 'Сохранить' : 'Добавить'}
+              {submitting ? 'Сохраняем…' : (product ? 'Сохранить' : 'Добавить')}
             </button>
             <button type="button" onClick={onCancel} className="btn-secondary">
               Отмена
