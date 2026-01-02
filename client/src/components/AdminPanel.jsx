@@ -19,8 +19,16 @@ const AdminPanel = ({ onLogout }) => {
 
     const flavors = Array.isArray(p?.flavors)
       ? p.flavors
-        .map((f) => (typeof f === 'string' ? f : (f.flavor_name || f.name)))
-        .filter(Boolean)
+        .map((f) => {
+          if (typeof f === 'string') {
+            return { flavor_name: f, stock: 0 };
+          }
+          return {
+            flavor_name: f?.flavor_name || f?.name || '',
+            stock: Number(f?.stock ?? 0),
+          };
+        })
+        .filter((f) => f.flavor_name)
       : [];
 
     return {
@@ -442,26 +450,73 @@ const AdminPanel = ({ onLogout }) => {
 };
 
 function ProductForm({ product, onSubmit, onCancel }) {
+  const initialFlavors = Array.isArray(product?.flavors)
+    ? product.flavors.map((f) => {
+      if (typeof f === 'string') {
+        return { name: f, stock: 0 };
+      }
+      return {
+        name: f?.flavor_name || f?.name || '',
+        stock: Number(f?.stock ?? 0),
+      };
+    }).filter((f) => f.name)
+    : [];
+
   const [formData, setFormData] = useState({
     name: product?.name || '',
     price: product?.price || '',
     category: product?.category || (Number(product?.category_id) === 2 ? 'consumables' : 'liquids'),
-    stock: product?.stock || '',
+    stock: product?.stock ?? '',
+    flavors: initialFlavors.length > 0 ? initialFlavors : [{ name: '', stock: 0 }],
+    image_url: product?.image_url || '',
   });
 
+  const [imagePreview, setImagePreview] = useState(product?.image_url || '');
+
   const [submitting, setSubmitting] = useState(false);
+
+  const handleImageFile = async (file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
+      setFormData((prev) => ({ ...prev, image_url: dataUrl }));
+      setImagePreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
     try {
+      const isLiquids = formData.category === 'liquids';
+      const normalizedFlavors = isLiquids
+        ? (Array.isArray(formData.flavors) ? formData.flavors : [])
+          .map((f) => ({
+            name: String(f?.name || '').trim(),
+            stock: Number(f?.stock === '' ? 0 : (f?.stock ?? 0))
+          }))
+          .filter((f) => f.name)
+        : [];
+
+      if (isLiquids && normalizedFlavors.length === 0) {
+        throw new Error('Добавь хотя бы 1 вкус');
+      }
+
+      const totalStock = isLiquids
+        ? normalizedFlavors.reduce((sum, f) => sum + Number(f.stock || 0), 0)
+        : Number(formData.stock);
+
       const data = {
+        ...(product?.id ? { id: product.id } : {}),
         name: String(formData.name || '').trim(),
         price: Number(formData.price),
         category: formData.category,
-        stock: Number(formData.stock),
-        flavors: [], // Временно без вкусов
+        stock: totalStock,
+        flavors: normalizedFlavors,
+        image_url: formData.image_url || null,
       };
       await onSubmit(data);
     } finally {
@@ -498,6 +553,35 @@ function ProductForm({ product, onSubmit, onCancel }) {
             />
           </div>
           <div className="form-group">
+            <label>Фото товара</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleImageFile(e.target.files?.[0])}
+            />
+            {imagePreview && (
+              <div style={{ marginTop: 10 }}>
+                <img
+                  src={imagePreview}
+                  alt="preview"
+                  style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 8 }}
+                />
+              </div>
+            )}
+            <div style={{ marginTop: 10 }}>
+              <input
+                type="text"
+                placeholder="или вставь URL картинки"
+                value={typeof formData.image_url === 'string' ? formData.image_url : ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setFormData({ ...formData, image_url: v });
+                  setImagePreview(v);
+                }}
+              />
+            </div>
+          </div>
+          <div className="form-group">
             <label>Категория</label>
             <select
               value={formData.category}
@@ -507,16 +591,82 @@ function ProductForm({ product, onSubmit, onCancel }) {
               <option value="consumables">Расходники</option>
             </select>
           </div>
-          <div className="form-group">
-            <label>Количество на складе</label>
-            <input
-              type="number"
-              value={formData.stock}
-              onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-              min="0"
-              required
-            />
-          </div>
+
+          {formData.category === 'liquids' ? (
+            <div className="form-group">
+              <label>Вкусы и количество банок</label>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {formData.flavors.map((flavorRow, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 140px 40px',
+                      gap: 8,
+                      alignItems: 'center'
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={flavorRow.name}
+                      onChange={(e) => {
+                        const next = [...formData.flavors];
+                        next[idx] = { ...next[idx], name: e.target.value };
+                        setFormData({ ...formData, flavors: next });
+                      }}
+                      placeholder="Вкус (например: Mango Ice)"
+                      required
+                    />
+                    <input
+                      type="number"
+                      value={flavorRow.stock}
+                      onChange={(e) => {
+                        const next = [...formData.flavors];
+                        const raw = e.target.value;
+                        next[idx] = { ...next[idx], stock: raw === '' ? '' : Number(raw) };
+                        setFormData({ ...formData, flavors: next });
+                      }}
+                      min="0"
+                      placeholder="Кол-во"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        const next = formData.flavors.filter((_, i) => i !== idx);
+                        setFormData({ ...formData, flavors: next.length ? next : [{ name: '', stock: 0 }] });
+                      }}
+                      aria-label="Удалить вкус"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setFormData({ ...formData, flavors: [...formData.flavors, { name: '', stock: 0 }] })}
+                >
+                  + Добавить вкус
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label>Количество на складе</label>
+              <input
+                type="number"
+                value={formData.stock}
+                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                min="0"
+                required
+              />
+            </div>
+          )}
           <div className="form-actions">
             <button type="submit" className="btn-primary" disabled={submitting}>
               {submitting ? 'Сохраняем...' : (product ? 'Сохранить' : 'Добавить')}

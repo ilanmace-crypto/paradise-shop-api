@@ -225,7 +225,7 @@ router.get('/products', authenticateToken, async (req, res) => {
 // Создание товара
 router.post('/products', authenticateToken, async (req, res) => {
   try {
-    const { name, category_id, category, price, description, stock, flavors, flavor } = req.body;
+    const { name, category_id, category, price, description, stock, flavors, flavor, image_url } = req.body;
 
     const resolvedCategoryId = await resolveCategoryId({ category_id, category });
     if (!resolvedCategoryId) {
@@ -235,9 +235,9 @@ router.post('/products', authenticateToken, async (req, res) => {
     const product_id = `product-${Date.now()}`;
     
     await pool.query(`
-      INSERT INTO products (id, name, category_id, price, description, stock)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [product_id, name, resolvedCategoryId, price, description || null, stock]);
+      INSERT INTO products (id, name, category_id, price, description, stock, image_url)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `, [product_id, name, resolvedCategoryId, price, description || null, stock, image_url || null]);
     
     // Добавляем вкусы если есть
     const normalizedFlavors = Array.isArray(flavors)
@@ -248,6 +248,7 @@ router.post('/products', authenticateToken, async (req, res) => {
       for (let fl of normalizedFlavors) {
         const flavorName = typeof fl === 'string' ? fl : (fl.name || fl.flavor_name);
         const flavorStock = typeof fl === 'string' ? stock : (fl.stock ?? stock);
+        if (!flavorName) continue;
         await pool.query(
           'INSERT INTO product_flavors (product_id, flavor_name, stock) VALUES ($1, $2, $3)',
           [product_id, flavorName, flavorStock]
@@ -267,18 +268,44 @@ router.post('/products', authenticateToken, async (req, res) => {
 router.put('/products/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category_id, category, price, description, stock, is_active } = req.body;
+    const { name, category_id, category, price, description, stock, is_active, flavors, image_url, flavor } = req.body;
 
     const resolvedCategoryId = await resolveCategoryId({ category_id, category });
     if (!resolvedCategoryId) {
       return res.status(400).json({ error: 'category_id or valid category is required' });
     }
     
-    await pool.query(`
-      UPDATE products 
-      SET name = $1, category_id = $2, price = $3, description = $4, stock = $5, is_active = $6, updated_at = NOW()
-      WHERE id = $7
-    `, [name, resolvedCategoryId, price, description || null, stock, is_active, id]);
+    await pool.query('BEGIN');
+    try {
+      await pool.query(`
+        UPDATE products 
+        SET name = $1, category_id = $2, price = $3, description = $4, stock = $5, is_active = $6, image_url = $7, updated_at = NOW()
+        WHERE id = $8
+      `, [name, resolvedCategoryId, price, description || null, stock, is_active, image_url || null, id]);
+
+      const normalizedFlavors = Array.isArray(flavors)
+        ? flavors
+        : (flavor ? [{ name: flavor, stock: stock }] : []);
+
+      await pool.query('DELETE FROM product_flavors WHERE product_id = $1', [id]);
+
+      if (normalizedFlavors.length > 0) {
+        for (let fl of normalizedFlavors) {
+          const flavorName = typeof fl === 'string' ? fl : (fl.name || fl.flavor_name);
+          const flavorStock = typeof fl === 'string' ? stock : (fl.stock ?? stock);
+          if (!flavorName) continue;
+          await pool.query(
+            'INSERT INTO product_flavors (product_id, flavor_name, stock) VALUES ($1, $2, $3)',
+            [id, flavorName, flavorStock]
+          );
+        }
+      }
+
+      await pool.query('COMMIT');
+    } catch (e) {
+      await pool.query('ROLLBACK');
+      throw e;
+    }
 
     const updatedProduct = await getProductWithRelations(id);
     res.json(updatedProduct);
@@ -293,10 +320,15 @@ router.delete('/products/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await pool.query(
-      'UPDATE products SET is_active = false, updated_at = NOW() WHERE id = $1',
-      [id]
-    );
+    await pool.query('BEGIN');
+    try {
+      await pool.query('DELETE FROM product_flavors WHERE product_id = $1', [id]);
+      await pool.query('DELETE FROM products WHERE id = $1', [id]);
+      await pool.query('COMMIT');
+    } catch (e) {
+      await pool.query('ROLLBACK');
+      throw e;
+    }
 
     res.json({ message: 'Product deleted' });
   } catch (error) {
