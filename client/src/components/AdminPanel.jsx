@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './AdminPanel.css';
+// import './AdminPanel.css'; // Временно отключаем CSS
 
 const AdminPanel = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('products');
@@ -11,6 +11,31 @@ const AdminPanel = ({ onLogout }) => {
   const [error, setError] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+
+  // Базовые стили
+  const containerStyle = {
+    padding: '20px',
+    background: '#f5f5f5',
+    minHeight: '100vh'
+  };
+  
+  const headerStyle = {
+    background: '#fff',
+    padding: '20px',
+    borderRadius: '10px',
+    marginBottom: '20px',
+    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+  };
+  
+  const buttonStyle = {
+    background: '#007bff',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: '5px',
+    cursor: 'pointer',
+    marginRight: '10px'
+  };
 
   const normalizeProduct = (p) => {
     const category = Number(p?.category_id) === 1
@@ -222,10 +247,10 @@ const AdminPanel = ({ onLogout }) => {
   };
 
   const renderProducts = () => (
-    <div className="admin-section">
-      <div className="section-header">
+    <div style={containerStyle}>
+      <div style={headerStyle}>
         <h3>Управление товарами</h3>
-        <button className="admin-button primary" onClick={() => {
+        <button style={buttonStyle} onClick={() => {
           console.log('Клик по кнопке Добавить товар');
           alert('Клик по кнопке Добавить товар сработал! showAddProduct = ' + showAddProduct);
           setShowAddProduct(true);
@@ -480,33 +505,63 @@ const AdminPanel = ({ onLogout }) => {
 function ProductForm({ product, onSubmit, onCancel }) {
   console.log('ProductForm рендерится!', { product, onSubmit, onCancel });
   
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = {
+      name: formData.get('name'),
+      price: Number(formData.get('price')),
+      category: formData.get('category'),
+      stock: Number(formData.get('stock')),
+    };
+    console.log('Отправка данных:', data);
+    onSubmit(data);
+  };
+  
   return (
     <div style={{
       position: 'fixed',
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      background: '#ff00ff',
-      border: '5px solid #00ff00',
+      background: '#fff',
+      border: '5px solid #000',
       padding: '30px',
       zIndex: 99999,
       color: '#000',
-      fontSize: '20px'
+      fontSize: '16px',
+      width: '400px'
     }}>
-      <h2>PRODUCT FORM РАБОТАЕТ!</h2>
-      <p>product: {JSON.stringify(product)}</p>
-      <button 
-        onClick={onCancel}
-        style={{
-          background: '#ff0000',
-          color: '#fff',
-          padding: '10px 20px',
-          border: 'none',
-          cursor: 'pointer'
-        }}
-      >
-        ЗАКРЫТЬ
-      </button>
+      <h2 style={{ marginTop: 0 }}>Добавить товар</h2>
+      <form onSubmit={handleSubmit}>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Название товара</label>
+          <input name="name" type="text" required style={{ width: '100%', padding: '8px', border: '2px solid #000' }} />
+        </div>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Цена (BYN)</label>
+          <input name="price" type="number" required style={{ width: '100%', padding: '8px', border: '2px solid #000' }} />
+        </div>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Категория</label>
+          <select name="category" style={{ width: '100%', padding: '8px', border: '2px solid #000' }}>
+            <option value="liquids">Жидкости</option>
+            <option value="consumables">Расходники</option>
+          </select>
+        </div>
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Количество на складе</label>
+          <input name="stock" type="number" required style={{ width: '100%', padding: '8px', border: '2px solid #000' }} />
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button type="submit" style={{ background: '#007bff', color: '#fff', padding: '10px 20px', border: 'none', cursor: 'pointer' }}>
+            Добавить
+          </button>
+          <button type="button" onClick={onCancel} style={{ background: '#dc3545', color: '#fff', padding: '10px 20px', border: 'none', cursor: 'pointer' }}>
+            Отмена
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
