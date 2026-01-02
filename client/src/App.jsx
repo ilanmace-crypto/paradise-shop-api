@@ -140,7 +140,13 @@ function ProductModal({ product, onClose, onAdd }) {
 
   if (!product) return null
 
-  const canAdd = qty > 0 && (!Array.isArray(product.flavors) || product.flavors.length === 0 || selectedFlavor)
+  const normalizedFlavors = Array.isArray(product.flavors)
+    ? product.flavors
+      .map((f) => (typeof f === 'string' ? f : (f.flavor_name || f.name)))
+      .filter(Boolean)
+    : []
+
+  const canAdd = qty > 0 && (normalizedFlavors.length === 0 || selectedFlavor)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -160,11 +166,11 @@ function ProductModal({ product, onClose, onAdd }) {
             </div>
           </div>
 
-          {Array.isArray(product.flavors) && product.flavors.length > 0 && (
+          {normalizedFlavors.length > 0 && (
             <div className="section">
               <div className="section-title">Вкус</div>
               <div className="flavor-chips">
-                {product.flavors.map((f) => (
+                {normalizedFlavors.map((f) => (
                   <button
                     key={f}
                     type="button"

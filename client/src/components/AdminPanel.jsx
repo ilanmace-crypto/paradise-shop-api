@@ -12,6 +12,24 @@ const AdminPanel = ({ onLogout }) => {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
+  const normalizeProduct = (p) => {
+    const category = Number(p?.category_id) === 1
+      ? 'liquids'
+      : (Number(p?.category_id) === 2 ? 'consumables' : (p?.category || null));
+
+    const flavors = Array.isArray(p?.flavors)
+      ? p.flavors
+        .map((f) => (typeof f === 'string' ? f : (f.flavor_name || f.name)))
+        .filter(Boolean)
+      : [];
+
+    return {
+      ...p,
+      category,
+      flavors,
+    };
+  };
+
   // Загрузка данных с API
   useEffect(() => {
     loadData();
@@ -43,27 +61,12 @@ const AdminPanel = ({ onLogout }) => {
       
       if (productsResponse.ok) {
         const productsData = await productsResponse.json();
-        const normalizedProducts = Array.isArray(productsData)
-          ? productsData.map((p) => {
-            const category = Number(p.category_id) === 1
-              ? 'liquids'
-              : (Number(p.category_id) === 2 ? 'consumables' : (p.category || null));
-
-            const flavors = Array.isArray(p.flavors)
-              ? p.flavors
-                .map((f) => (typeof f === 'string' ? f : (f.flavor_name || f.name)))
-                .filter(Boolean)
-              : [];
-
-            return {
-              ...p,
-              category,
-              flavors,
-            };
-          })
-          : [];
-
+        const normalizedProducts = Array.isArray(productsData) ? productsData.map(normalizeProduct) : [];
         setProducts(normalizedProducts);
+      } else if (productsResponse.status === 401) {
+        localStorage.removeItem('adminToken');
+        onLogout();
+        return;
       }
       
       if (ordersResponse.ok) {
@@ -74,6 +77,10 @@ const AdminPanel = ({ onLogout }) => {
       if (usersResponse.ok) {
         const usersData = await usersResponse.json();
         setUsers(usersData);
+      } else if (usersResponse.status === 401) {
+        localStorage.removeItem('adminToken');
+        onLogout();
+        return;
       }
       
       if (statsResponse.ok) {
@@ -90,6 +97,10 @@ const AdminPanel = ({ onLogout }) => {
           avgOrderValue,
           topProducts: [],
         });
+      } else if (statsResponse.status === 401) {
+        localStorage.removeItem('adminToken');
+        onLogout();
+        return;
       }
       
     } catch (err) {
@@ -113,10 +124,14 @@ const AdminPanel = ({ onLogout }) => {
       
       if (response.ok) {
         const newProduct = await response.json();
-        setProducts([...products, newProduct]);
+        setProducts([...products, normalizeProduct(newProduct)]);
         setShowAddProduct(false);
+      } else if (response.status === 401) {
+        localStorage.removeItem('adminToken');
+        onLogout();
       } else {
-        throw new Error('Failed to add product');
+        const errBody = await response.json().catch(() => null);
+        throw new Error(errBody?.error || 'Failed to add product');
       }
     } catch (err) {
       setError(err.message);
@@ -137,10 +152,15 @@ const AdminPanel = ({ onLogout }) => {
       
       if (response.ok) {
         const updatedProduct = await response.json();
-        setProducts(products.map(p => p.id === product.id ? updatedProduct : p));
+        const normalized = normalizeProduct(updatedProduct);
+        setProducts(products.map(p => p.id === product.id ? normalized : p));
         setEditingProduct(null);
+      } else if (response.status === 401) {
+        localStorage.removeItem('adminToken');
+        onLogout();
       } else {
-        throw new Error('Failed to update product');
+        const errBody = await response.json().catch(() => null);
+        throw new Error(errBody?.error || 'Failed to update product');
       }
     } catch (err) {
       setError(err.message);
@@ -161,8 +181,12 @@ const AdminPanel = ({ onLogout }) => {
       
       if (response.ok) {
         setProducts(products.filter(p => p.id !== id));
+      } else if (response.status === 401) {
+        localStorage.removeItem('adminToken');
+        onLogout();
       } else {
-        throw new Error('Failed to delete product');
+        const errBody = await response.json().catch(() => null);
+        throw new Error(errBody?.error || 'Failed to delete product');
       }
     } catch (err) {
       setError(err.message);
