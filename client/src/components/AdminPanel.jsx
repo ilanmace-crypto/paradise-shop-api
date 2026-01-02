@@ -440,12 +440,24 @@ const AdminPanel = ({ onLogout }) => {
 };
 
 function ProductForm({ product, onSubmit, onCancel }) {
+  const initialFlavors = Array.isArray(product?.flavors)
+    ? product.flavors.map((f) => {
+      if (typeof f === 'string') {
+        return { name: f, stock: 0 };
+      }
+      return {
+        name: f.flavor_name || f.name || '',
+        stock: Number(f.stock ?? 0)
+      };
+    }).filter((f) => f.name)
+    : [];
+
   const [formData, setFormData] = useState({
     name: product?.name || '',
     price: product?.price || '',
-    category: product?.category || 'liquids',
-    flavor: product?.flavor || '',
+    category: product?.category || (Number(product?.category_id) === 2 ? 'consumables' : 'liquids'),
     stock: product?.stock || '',
+    flavors: initialFlavors.length > 0 ? initialFlavors : [{ name: '', stock: 0 }],
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -455,10 +467,30 @@ function ProductForm({ product, onSubmit, onCancel }) {
     if (submitting) return;
     setSubmitting(true);
     try {
+      const isLiquids = formData.category === 'liquids';
+      const normalizedFlavors = isLiquids
+        ? (Array.isArray(formData.flavors) ? formData.flavors : [])
+          .map((f) => ({
+            name: String(f.name || '').trim(),
+            stock: Number(f.stock || 0)
+          }))
+          .filter((f) => f.name && f.stock >= 0)
+        : [];
+
+      if (isLiquids && normalizedFlavors.length === 0) {
+        throw new Error('Добавь хотя бы 1 вкус');
+      }
+
+      const totalStock = isLiquids
+        ? normalizedFlavors.reduce((sum, f) => sum + Number(f.stock || 0), 0)
+        : Number(formData.stock);
+
       await onSubmit({
-        ...formData,
+        name: String(formData.name || '').trim(),
         price: Number(formData.price),
-        stock: Number(formData.stock),
+        category: formData.category,
+        stock: totalStock,
+        flavors: normalizedFlavors,
       });
     } finally {
       setSubmitting(false);
@@ -501,26 +533,74 @@ function ProductForm({ product, onSubmit, onCancel }) {
               <option value="consumables">Расходники</option>
             </select>
           </div>
-          {formData.category === 'liquids' && (
+
+          {formData.category === 'liquids' ? (
             <div className="form-group">
-              <label>Вкус</label>
+              <label>Вкусы и количество банок</label>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {formData.flavors.map((flavorRow, idx) => (
+                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 40px', gap: 8, alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      value={flavorRow.name}
+                      onChange={(e) => {
+                        const next = [...formData.flavors];
+                        next[idx] = { ...next[idx], name: e.target.value };
+                        setFormData({ ...formData, flavors: next });
+                      }}
+                      placeholder="Вкус (например: Mango Ice)"
+                      required
+                    />
+                    <input
+                      type="number"
+                      value={flavorRow.stock}
+                      onChange={(e) => {
+                        const next = [...formData.flavors];
+                        const raw = e.target.value;
+                        next[idx] = { ...next[idx], stock: raw === '' ? '' : Number(raw) };
+                        setFormData({ ...formData, flavors: next });
+                      }}
+                      min="0"
+                      placeholder="Кол-во"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => {
+                        const next = formData.flavors.filter((_, i) => i !== idx);
+                        setFormData({ ...formData, flavors: next.length ? next : [{ name: '', stock: 0 }] });
+                      }}
+                      aria-label="Удалить вкус"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setFormData({ ...formData, flavors: [...formData.flavors, { name: '', stock: 0 }] })}
+                >
+                  + Добавить вкус
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label>Количество на складе</label>
               <input
-                type="text"
-                value={formData.flavor}
-                onChange={(e) => setFormData({ ...formData, flavor: e.target.value })}
-                placeholder="Например: Ягодный, Мятный, Табачный"
+                type="number"
+                value={formData.stock}
+                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                min="0"
+                required
               />
             </div>
           )}
-          <div className="form-group">
-            <label>Количество на складе</label>
-            <input
-              type="number"
-              value={formData.stock}
-              onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-              required
-            />
-          </div>
           <div className="form-actions">
             <button type="submit" className="btn-primary">
               {submitting ? 'Сохраняем…' : (product ? 'Сохранить' : 'Добавить')}
