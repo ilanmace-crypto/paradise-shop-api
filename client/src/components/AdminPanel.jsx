@@ -264,14 +264,47 @@ const AdminPanel = ({ onLogout }) => {
       )}
 
       {(showAddProduct || editingProduct) && (
-        <ProductForm
-          product={editingProduct}
-          onSubmit={editingProduct ? handleEditProduct : handleAddProduct}
-          onCancel={() => {
-            setShowAddProduct(false);
-            setEditingProduct(null);
-          }}
-        />
+        <>
+          {/* Временная отладочная модалка */}
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0, 255, 0, 0.9)',
+            zIndex: 999999,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            fontSize: '24px',
+            color: '#000',
+            fontWeight: 'bold'
+          }}>
+            <div>
+              МОДАЛКА РАБОТАЕТ! showAddProduct = {showAddProduct ? 'true' : 'false'}
+              <br /><br />
+              <button onClick={() => {
+                setShowAddProduct(false);
+                setEditingProduct(null);
+              }} style={{
+                padding: '10px 20px',
+                fontSize: '18px',
+                background: '#fff',
+                border: '2px solid #000',
+                cursor: 'pointer'
+              }}>
+                Закрыть
+              </button>
+            </div>
+          </div>
+          
+          <ProductForm
+            product={editingProduct}
+            onSubmit={editingProduct ? handleEditProduct : handleAddProduct}
+            onCancel={() => {
+              setShowAddProduct(false);
+              setEditingProduct(null);
+            }}
+          />
+        </>
       )}
     </div>
   );
