@@ -2,11 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './AdminPanel.css';
 
 const AdminPanel = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState('products');
   const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddProduct, setShowAddProduct] = useState(false);
@@ -51,61 +47,16 @@ const AdminPanel = ({ onLogout }) => {
         throw new Error('No authentication token');
       }
 
-      // Загрузка всех данных с реального API
-      const [productsResponse, ordersResponse, usersResponse, statsResponse] = await Promise.all([
-        fetch('/admin/products', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch('/admin/orders', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch('/admin/users', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch('/admin/stats', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      ]);
+      // Загрузка только товаров
+      const productsResponse = await fetch('/admin/products', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       
       if (productsResponse.ok) {
         const productsData = await productsResponse.json();
         const normalizedProducts = Array.isArray(productsData) ? productsData.map(normalizeProduct) : [];
         setProducts(normalizedProducts);
       } else if (productsResponse.status === 401) {
-        localStorage.removeItem('adminToken');
-        onLogout();
-        return;
-      }
-      
-      if (ordersResponse.ok) {
-        const ordersData = await ordersResponse.json();
-        setOrders(ordersData);
-      }
-      
-      if (usersResponse.ok) {
-        const usersData = await usersResponse.json();
-        setUsers(usersData);
-      } else if (usersResponse.status === 401) {
-        localStorage.removeItem('adminToken');
-        onLogout();
-        return;
-      }
-      
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        const totalOrders = Number(statsData?.orders?.total_orders || 0);
-        const totalRevenue = Number(statsData?.orders?.total_revenue || 0);
-        const totalUsers = Number(statsData?.users?.count || 0);
-        const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders) : 0;
-
-        setStats({
-          totalOrders,
-          totalRevenue,
-          totalUsers,
-          avgOrderValue,
-          topProducts: [],
-        });
-      } else if (statsResponse.status === 401) {
         localStorage.removeItem('adminToken');
         onLogout();
         return;
@@ -281,127 +232,8 @@ const AdminPanel = ({ onLogout }) => {
     </div>
   );
 
-  const renderOrders = () => (
-    <div className="admin-section">
-      <h3>Управление заказами</h3>
-      {loading ? (
-        <div className="loading">Загрузка...</div>
-      ) : error ? (
-        <div className="error">{error}</div>
-      ) : (
-        <div className="orders-table">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Клиент</th>
-                <th>Товары</th>
-                <th>Сумма</th>
-                <th>Статус</th>
-                <th>Дата</th>
-                <th>Действия</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map(order => (
-                <tr key={order.id}>
-                  <td>#{order.id}</td>
-                  <td>{order.customer || 'Не указано'}</td>
-                  <td>{order.items || 0} шт.</td>
-                  <td>{order.total || 0} BYN</td>
-                  <td>
-                    <select 
-                      value={order.status || 'pending'} 
-                      onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                      className="status-select"
-                    >
-                      <option value="pending">Ожидает</option>
-                      <option value="processing">В обработке</option>
-                      <option value="completed">Выполнен</option>
-                      <option value="cancelled">Отменен</option>
-                    </select>
-                  </td>
-                  <td>{order.date || new Date().toLocaleDateString()}</td>
-                  <td>
-                    <button className="btn-view">Просмотр</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
 
-  const renderUsers = () => (
-    <div className="admin-section">
-      <h3>Управление пользователями</h3>
-      {loading ? (
-        <div className="loading">Загрузка...</div>
-      ) : error ? (
-        <div className="error">{error}</div>
-      ) : (
-        <div className="users-grid">
-          {users.map(user => (
-            <div key={user.id} className="user-card">
-              <div className="user-info">
-                <h4>{user.name || 'Пользователь'}</h4>
-                <p className="email">{user.email || 'Нет email'}</p>
-                <p className="orders">Заказы: {user.orders || 0}</p>
-                <p className="total">Покупки: {user.total || 0} BYN</p>
-              </div>
-              <div className="user-actions">
-                <button className="btn-view">Профиль</button>
-                <button className="btn-block">Заблокировать</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 
-  const renderStats = () => (
-    <div className="admin-section">
-      <h3>Статистика</h3>
-      {loading ? (
-        <div className="loading">Загрузка...</div>
-      ) : error ? (
-        <div className="error">{error}</div>
-      ) : (
-        <>
-          <div className="stats-grid">
-            <div className="stat-card">
-              <h4>Всего заказов</h4>
-              <p className="stat-number">{stats?.totalOrders || 0}</p>
-            </div>
-            <div className="stat-card">
-              <h4>Общая выручка</h4>
-              <p className="stat-number">{stats?.totalRevenue || 0} BYN</p>
-            </div>
-            <div className="stat-card">
-              <h4>Пользователи</h4>
-              <p className="stat-number">{stats?.totalUsers || 0}</p>
-            </div>
-            <div className="stat-card">
-              <h4>Средний чек</h4>
-              <p className="stat-number">{stats?.avgOrderValue || 0} BYN</p>
-            </div>
-          </div>
-          
-          <div className="top-products">
-            <h4>Популярные товары</h4>
-            <ul>
-              {stats?.topProducts?.map((product, index) => (
-                <li key={index}>{index + 1}. {product}</li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
-    </div>
-  );
 
   return (
     <div className="admin-panel">
@@ -412,38 +244,8 @@ const AdminPanel = ({ onLogout }) => {
         </button>
       </div>
       
-      <div className="admin-tabs">
-        <button
-          className={`admin-tab ${activeTab === 'products' ? 'active' : ''}`}
-          onClick={() => setActiveTab('products')}
-        >
-          Товары
-        </button>
-        <button
-          className={`admin-tab ${activeTab === 'orders' ? 'active' : ''}`}
-          onClick={() => setActiveTab('orders')}
-        >
-          Заказы
-        </button>
-        <button
-          className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
-          onClick={() => setActiveTab('users')}
-        >
-          Пользователи
-        </button>
-        <button
-          className={`admin-tab ${activeTab === 'stats' ? 'active' : ''}`}
-          onClick={() => setActiveTab('stats')}
-        >
-          Статистика
-        </button>
-      </div>
-
       <div className="admin-content">
-        {activeTab === 'products' && renderProducts()}
-        {activeTab === 'orders' && renderOrders()}
-        {activeTab === 'users' && renderUsers()}
-        {activeTab === 'stats' && renderStats()}
+        {renderProducts()}
       </div>
     </div>
   );
