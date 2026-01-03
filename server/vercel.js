@@ -190,3 +190,106 @@ app.post('/api/orders', async (req, res) => {
 });
 
 module.exports = app;
+
+// Admin products endpoints
+app.post('/admin/products', async (req, res) => {
+  try {
+    const { name, category_id, category, price, description, stock, flavors, image_url } = req.body;
+
+    if (!name || !price) {
+      return res.status(400).json({ error: 'Name and price are required' });
+    }
+
+    // Определяем category_id
+    let resolvedCategoryId = category_id;
+    if (!resolvedCategoryId && category) {
+      if (category === 'liquids') resolvedCategoryId = 1;
+      else if (category === 'consumables') resolvedCategoryId = 2;
+    }
+
+    if (!resolvedCategoryId) {
+      return res.status(400).json({ error: 'Category is required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      const productResult = await client.query(`
+        INSERT INTO products (id, name, category_id, price, description, stock, image_url)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `, [name, resolvedCategoryId, price, description || null, stock || 0, image_url || null]);
+      
+      const product = productResult.rows[0];
+      
+      // Добавляем вкусы если есть
+      if (flavors && Array.isArray(flavors) && flavors.length > 0) {
+        for (const flavor of flavors) {
+          if (flavor.name && flavor.stock > 0) {
+            await client.query(`
+              INSERT INTO product_flavors (product_id, flavor_name, stock)
+              VALUES ($1, $2, $3)
+            `, [product.id, flavor.name, flavor.stock]);
+          }
+        }
+      }
+      
+      await client.query('COMMIT');
+      
+      res.json({
+        success: true,
+        product: {
+          ...product,
+          flavors: flavors || []
+        }
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Create product error:', error);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
+// Admin orders endpoint
+app.get('/admin/orders', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT o.*, u.telegram_username
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      ORDER BY o.created_at DESC
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Orders error:', error);
+    res.json([]);
+  }
+});
+
+// Admin users endpoint  
+app.get('/admin/users', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.*,
+             COUNT(o.id) as orders_count,
+             COALESCE(SUM(o.total_amount), 0) as total_spent
+      FROM users u
+      LEFT JOIN orders o ON u.id = o.user_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Users error:', error);
+    res.json([]);
+  }
+});
+
