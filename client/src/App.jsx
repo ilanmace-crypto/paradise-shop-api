@@ -537,6 +537,9 @@ function MainApp() {
             : []
 
           setProducts(normalized.filter(p => Number(p.stock) > 0));
+          console.log('Products loaded:', normalized.length);
+          console.log('Products after stock filter:', normalized.filter(p => Number(p.stock) > 0).length);
+          console.log('Sample product:', normalized[0]);
         } else {
           throw new Error('Failed to load products');
         }
@@ -718,7 +721,10 @@ function MainApp() {
             <ProductGrid
               title="Жидкости"
               products={products.filter(p => p.category === 'liquids' && Number(p.stock) > 0)}
-              onOpenProduct={(p) => setActiveProduct(p)}
+              onOpenProduct={(p) => {
+                console.log('Opening product:', p);
+                setActiveProduct(p);
+              }}
               query={searchQuery}
             />
           )}
