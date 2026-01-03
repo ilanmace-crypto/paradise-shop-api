@@ -14,6 +14,10 @@ app.use(cors({
 
 app.use(express.json());
 
+// Serve static files from root
+app.use(express.static('public'));
+app.use(express.static('.'));
+
 // Health check с проверкой Neon БД
 app.get('/health', async (req, res) => {
   try {
@@ -517,3 +521,13 @@ app.get('/api/db-check', async (req, res) => {
 });
 
 module.exports = app;
+
+// Start server if not in Vercel environment
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+    console.log(`API debug: http://localhost:${PORT}/api/debug`);
+  });
+}
