@@ -512,10 +512,15 @@ function MainApp() {
   useEffect(() => {
     const loadProducts = async (retryCount = 0) => {
       try {
+        console.log('Starting to load products, attempt:', retryCount + 1);
         setLoading(true)
         const response = await fetch('/api/products');
+        console.log('API response status:', response.status);
+        console.log('API response ok:', response.ok);
+        
         if (response.ok) {
           const productsData = await response.json();
+          console.log('Raw products data:', productsData);
           const normalized = Array.isArray(productsData)
             ? productsData.map((p) => {
               const category = Number(p.category_id) === 1
@@ -541,6 +546,7 @@ function MainApp() {
           console.log('Products after stock filter:', normalized.filter(p => Number(p.stock) > 0).length);
           console.log('Sample product:', normalized[0]);
         } else {
+          console.error('API response not ok:', response.status, response.statusText);
           throw new Error('Failed to load products');
         }
       } catch (error) {
@@ -550,13 +556,15 @@ function MainApp() {
           setTimeout(() => loadProducts(retryCount + 1), 2000);
         } else {
           // Show error after 3 failed attempts
+          alert('Не удалось загрузить товары. Пожалуйста, обновите страницу.');
           setProducts([]);
         }
       } finally {
         setLoading(false);
       }
     }
-    loadProducts()
+
+    loadProducts();
   }, [])
 
   const cartCount = useMemo(() => cartItems.reduce((sum, it) => sum + it.qty, 0), [cartItems])
