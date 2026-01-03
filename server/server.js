@@ -126,6 +126,83 @@ app.get('/api/debug', (req, res) => {
   });
 });
 
+// Database connection test
+app.get('/api/db-test', async (req, res) => {
+  try {
+    const pool = require('./config/supabase');
+    
+    // Test basic connection
+    const result = await pool.query('SELECT NOW() as current_time, version() as db_version');
+    
+    // Test if tables exist
+    const tables = await pool.query(`
+      SELECT table_name, table_type 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+    `);
+    
+    // Test if admins table exists and has data
+    let adminsInfo = null;
+    try {
+      const adminsResult = await pool.query('SELECT COUNT(*) as count FROM admins');
+      adminsInfo = {
+        exists: true,
+        count: adminsResult.rows[0].count
+      };
+    } catch (adminError) {
+      adminsInfo = {
+        exists: false,
+        error: adminError.message
+      };
+    }
+    
+    // Test products table
+    let productsInfo = null;
+    try {
+      const productsResult = await pool.query('SELECT COUNT(*) as count FROM products');
+      productsInfo = {
+        exists: true,
+        count: productsResult.rows[0].count
+      };
+    } catch (productError) {
+      productsInfo = {
+        exists: false,
+        error: productError.message
+      };
+    }
+    
+    res.json({
+      status: 'connected',
+      timestamp: result.rows[0].current_time,
+      database: result.rows[0].db_version,
+      tables: tables.rows,
+      admins: adminsInfo,
+      products: productsInfo,
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: process.env.PORT,
+        DB_HOST: process.env.DB_HOST ? 'SET' : 'NOT_SET',
+        DB_NAME: process.env.DB_NAME || 'NOT_SET'
+      }
+    });
+    
+  } catch (error) {
+    console.error('Database test error:', error);
+    res.status(500).json({
+      status: 'error',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        PORT: process.env.PORT,
+        DB_HOST: process.env.DB_HOST ? 'SET' : 'NOT_SET',
+        DB_NAME: process.env.DB_NAME || 'NOT_SET'
+      }
+    });
+  }
+});
+
 // Health check (before rate limiting)
 app.get('/health', (req, res) => {
   res.status(200).json({ 
