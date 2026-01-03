@@ -429,3 +429,47 @@ app.get('/admin/products', async (req, res) => {
   }
 });
 
+
+// GET /api/db-check - check database tables
+app.get('/api/db-check', async (req, res) => {
+  try {
+    const tables = await pool.query(`
+      SELECT table_name, table_type 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public'
+      ORDER BY table_name
+    `);
+    
+    let productsCount = 0;
+    let adminsCount = 0;
+    
+    try {
+      const productsResult = await pool.query('SELECT COUNT(*) as count FROM products');
+      productsCount = productsResult.rows[0].count;
+    } catch (e) {
+      console.warn('Products table error:', e.message);
+    }
+    
+    try {
+      const adminsResult = await pool.query('SELECT COUNT(*) as count FROM admins');
+      adminsCount = adminsResult.rows[0].count;
+    } catch (e) {
+      console.warn('Admins table error:', e.message);
+    }
+    
+    res.json({
+      tables: tables.rows,
+      counts: {
+        products: productsCount,
+        admins: adminsCount
+      },
+      database_url: process.env.DATABASE_URL ? 'SET' : 'NOT_SET'
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      database_url: process.env.DATABASE_URL ? 'SET' : 'NOT_SET'
+    });
+  }
+});
+
