@@ -95,6 +95,10 @@ const ddosLimiter = rateLimit({
 app.use('/api/', ddosLimiter);
 app.use('/api/', limiter);
 
+// Временно отключаем middleware для теста
+// app.use(sanitizeInput); // Защита от XSS
+// app.use(detectSuspiciousActivity); // Мониторинг безопасности
+
 // Routes
 app.use('/api/products', productsRouter);
 app.use('/api/orders', orderLimiter, ordersRouter);
@@ -217,6 +221,30 @@ app.get('/health', (req, res) => {
       products: 'loaded'
     }
   });
+});
+
+// Minimal test endpoint (no dependencies)
+app.get('/api/minimal-test', (req, res) => {
+  try {
+    res.status(200).json({
+      status: 'OK',
+      message: 'Minimal test working',
+      timestamp: new Date().toISOString(),
+      method: req.method,
+      path: req.path,
+      headers: {
+        'user-agent': req.headers['user-agent'],
+        'host': req.headers['host']
+      }
+    });
+  } catch (error) {
+    console.error('Minimal test error:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Root route для Railway
