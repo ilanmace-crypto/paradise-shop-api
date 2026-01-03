@@ -2,6 +2,13 @@
   "version": 2,
   "builds": [
     {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "."
+      }
+    },
+    {
       "src": "server/vercel.js",
       "use": "@vercel/node"
     }
@@ -20,16 +27,8 @@
       "dest": "/server/vercel.js"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/vite.svg",
-      "dest": "/vite.svg"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/$1"
     }
   ]
 }
