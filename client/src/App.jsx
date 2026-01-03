@@ -490,6 +490,23 @@ function MainApp() {
   const cartCount = useMemo(() => cartItems.reduce((sum, it) => sum + it.qty, 0), [cartItems])
 
   const addToCart = (product, flavor, qty) => {
+    // Проверка остатков
+    if (flavor) {
+      const flavorData = product.flavors?.find(f => 
+        (typeof f === 'string' ? f : (f.flavor_name || f.name)) === flavor
+      );
+      const stock = typeof flavorData === 'object' ? flavorData?.stock : 0;
+      if (stock < qty) {
+        alert(`Остаток по вкусу "${flavor}": ${stock} шт.`);
+        return;
+      }
+    } else {
+      if (product.stock < qty) {
+        alert(`Остаток товара: ${product.stock} шт.`);
+        return;
+      }
+    }
+
     const key = `${product.id}::${flavor || 'no-flavor'}`
     setCartItems((prev) => {
       const existing = prev.find((x) => x.key === key)
@@ -506,7 +523,26 @@ function MainApp() {
           },
         ]
       }
-      return prev.map((x) => (x.key === key ? { ...x, qty: x.qty + qty } : x))
+      
+      // Проверка остатков при увеличении количества
+      const newQty = existing.qty + qty;
+      if (flavor) {
+        const flavorData = product.flavors?.find(f => 
+          (typeof f === 'string' ? f : (f.flavor_name || f.name)) === flavor
+        );
+        const stock = typeof flavorData === 'object' ? flavorData?.stock : 0;
+        if (stock < newQty) {
+          alert(`Остаток по вкусу "${flavor}": ${stock} шт.`);
+          return prev;
+        }
+      } else {
+        if (product.stock < newQty) {
+          alert(`Остаток товара: ${product.stock} шт.`);
+          return prev;
+        }
+      }
+      
+      return prev.map((x) => (x.key === key ? { ...x, qty: newQty } : x))
     })
     setCartOpen(true)
   }
@@ -535,6 +571,12 @@ function MainApp() {
 
   const submitCheckout = async ({ telegram_username }) => {
     if (checkoutSubmitting) return
+    
+    if (cartItems.length === 0) {
+      alert('Корзина пуста!')
+      return
+    }
+    
     setCheckoutSubmitting(true)
     try {
       const cleanUsername = String(telegram_username || '')
@@ -543,6 +585,15 @@ function MainApp() {
 
       if (!cleanUsername) {
         throw new Error('Введи свой Telegram username')
+      }
+
+      // Валидация формата username
+      if (cleanUsername.length < 3 || cleanUsername.length > 32) {
+        throw new Error('Username должен быть от 3 до 32 символов')
+      }
+
+      if (!/^[a-zA-Z0-9_]+$/.test(cleanUsername)) {
+        throw new Error('Username может содержать только буквы, цифры и _')
       }
 
       const items = cartItems.map((it) => ({

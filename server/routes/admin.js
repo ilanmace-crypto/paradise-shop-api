@@ -34,13 +34,48 @@ const getProductWithRelations = async (productId) => {
   return product;
 };
 
-// Авторизация админа (временная для теста)
+// Авторизация админа
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     
-    // Временная проверка для теста
-    if (username === 'admin' && password === 'admin') {
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+    
+    const result = await pool.query(
+      'SELECT * FROM admins WHERE username = $1',
+      [username]
+    );
+      
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+      
+    const admin = result.rows[0];
+    const isValid = await bcrypt.compare(password, admin.password_hash);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+      
+    // Обновляем время последнего входа
+    await pool.query(
+      'UPDATE admins SET last_login = NOW() WHERE id = $1',
+      [admin.id]
+    );
+      
+    const token = generateToken(admin.username, admin.role);
+    res.json({
+      token,
+      admin: {
+        id: admin.id,
+        username: admin.username,
+        role: admin.role
+      }
+    });
+  } catch (dbError) {
+    // Если база недоступна, используем временный fallback
+    if (username === 'admin' && password === 'paradise251208') {
       const token = generateToken('admin', 'admin');
       return res.json({
         token,
@@ -51,45 +86,7 @@ router.post('/login', async (req, res) => {
         }
       });
     }
-    
-    // Если база данных доступна, проверяем через нее
-    try {
-      const result = await pool.query(
-        'SELECT * FROM admins WHERE username = $1',
-        [username]
-      );
-      
-      if (result.rows.length === 0) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-      
-      const admin = result.rows[0];
-      const isValid = await bcrypt.compare(password, admin.password_hash);
-      if (!isValid) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-      
-      // Обновляем время последнего входа
-      await pool.query(
-        'UPDATE admins SET last_login = NOW() WHERE id = $1',
-        [admin.id]
-      );
-      
-      const token = generateToken(admin.username, admin.role);
-      res.json({
-        token,
-        admin: {
-          id: admin.id,
-          username: admin.username,
-          role: admin.role
-        }
-      });
-    } catch (dbError) {
-      // Если база недоступна, возвращаем ошибку
-      return res.status(500).json({ error: 'Database error' });
-    }
-  } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error:', dbError);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

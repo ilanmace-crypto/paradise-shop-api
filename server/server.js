@@ -48,11 +48,20 @@ const limiter = rateLimit({
     return req.path === '/health' || req.path === '/api/debug';
   }
 });
+
+// Отдельный лимитер для заказов (защита от спама)
+const orderLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 5, // максимум 5 заказов за 5 минут
+  message: { error: 'Too many orders, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 app.use('/api/', limiter);
 
 // Routes
 app.use('/api/products', productsRouter);
-app.use('/api/orders', ordersRouter);
+app.use('/api/orders', orderLimiter, ordersRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/stats', statsRouter);
 
