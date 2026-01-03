@@ -45,6 +45,40 @@ app.get('/api/debug', (req, res) => {
   });
 });
 
+// GET /api/products-debug - debug products API
+app.get('/api/products-debug', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ORDER BY p.created_at DESC
+    `);
+    
+    // Получаем вкусы для каждого товара
+    for (let product of result.rows) {
+      const flavors = await pool.query(
+        'SELECT * FROM product_flavors WHERE product_id = $1 ORDER BY flavor_name',
+        [product.id]
+      );
+      product.flavors = flavors.rows;
+    }
+    
+    res.json({
+      total_products: result.rows.length,
+      products: result.rows,
+      frontend_filter: {
+        liquids_count: result.rows.filter(p => Number(p.category_id) === 1 && Number(p.stock) > 0).length,
+        consumables_count: result.rows.filter(p => Number(p.category_id) === 2 && Number(p.stock) > 0).length,
+        with_stock_count: result.rows.filter(p => Number(p.stock) > 0).length
+      }
+    });
+  } catch (error) {
+    console.error('Debug products error:', error);
+    res.status(500).json({ error: 'Failed to fetch debug products' });
+  }
+});
+
 // Admin login с Neon БД
 app.post('/admin/login', async (req, res) => {
   try {
@@ -203,8 +237,6 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-module.exports = app;
-
 // Admin products endpoints
 app.post('/admin/products', async (req, res) => {
   try {
@@ -270,43 +302,31 @@ app.post('/admin/products', async (req, res) => {
   }
 });
 
-// Admin orders endpoint
-app.get('/admin/orders', async (req, res) => {
+// GET /admin/products - get all products for admin
+app.get('/admin/products', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT o.*, u.telegram_username
-      FROM orders o
-      LEFT JOIN users u ON o.user_id = u.id
-      ORDER BY o.created_at DESC
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ORDER BY p.created_at DESC
     `);
+    
+    // Получаем вкусы для каждого товара
+    for (let product of result.rows) {
+      const flavors = await pool.query(
+        'SELECT * FROM product_flavors WHERE product_id = $1 ORDER BY flavor_name',
+        [product.id]
+      );
+      product.flavors = flavors.rows;
+    }
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Orders error:', error);
-    res.json([]);
+    console.error('Admin products error:', error);
+    res.status(500).json({ error: 'Failed to fetch products' });
   }
 });
-
-// Admin users endpoint  
-app.get('/admin/users', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT u.*,
-             COUNT(o.id) as orders_count,
-             COALESCE(SUM(o.total_amount), 0) as total_spent
-      FROM users u
-      LEFT JOIN orders o ON u.id = o.user_id
-      GROUP BY u.id
-      ORDER BY u.created_at DESC
-    `);
-    
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Users error:', error);
-    res.json([]);
-  }
-});
-
 
 // PUT /admin/products/:id - update product
 app.put('/admin/products/:id', async (req, res) => {
@@ -416,33 +436,42 @@ app.delete('/admin/products/:id', async (req, res) => {
   }
 });
 
-
-// GET /admin/products - get all products for admin
-app.get('/admin/products', async (req, res) => {
+// Admin orders endpoint
+app.get('/admin/orders', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT p.*, c.name as category_name
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      ORDER BY p.created_at DESC
+      SELECT o.*, u.telegram_username
+      FROM orders o
+      LEFT JOIN users u ON o.user_id = u.id
+      ORDER BY o.created_at DESC
     `);
-    
-    // Получаем вкусы для каждого товара
-    for (let product of result.rows) {
-      const flavors = await pool.query(
-        'SELECT * FROM product_flavors WHERE product_id = $1 ORDER BY flavor_name',
-        [product.id]
-      );
-      product.flavors = flavors.rows;
-    }
     
     res.json(result.rows);
   } catch (error) {
-    console.error('Admin products error:', error);
-    res.status(500).json({ error: 'Failed to fetch products' });
+    console.error('Orders error:', error);
+    res.json([]);
   }
 });
 
+// Admin users endpoint  
+app.get('/admin/users', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.*,
+             COUNT(o.id) as orders_count,
+             COALESCE(SUM(o.total_amount), 0) as total_spent
+      FROM users u
+      LEFT JOIN orders o ON u.id = o.user_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `);
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Users error:', error);
+    res.json([]);
+  }
+});
 
 // GET /api/db-check - check database tables
 app.get('/api/db-check', async (req, res) => {
@@ -487,38 +516,4 @@ app.get('/api/db-check', async (req, res) => {
   }
 });
 
-
-// GET /api/products-debug - debug products API
-app.get('/api/products-debug', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT p.*, c.name as category_name
-      FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      ORDER BY p.created_at DESC
-    `);
-    
-    // Получаем вкусы для каждого товара
-    for (let product of result.rows) {
-      const flavors = await pool.query(
-        'SELECT * FROM product_flavors WHERE product_id = $1 ORDER BY flavor_name',
-        [product.id]
-      );
-      product.flavors = flavors.rows;
-    }
-    
-    res.json({
-      total_products: result.rows.length,
-      products: result.rows,
-      frontend_filter: {
-        liquids_count: result.rows.filter(p => Number(p.category_id) === 1 && Number(p.stock) > 0).length,
-        consumables_count: result.rows.filter(p => Number(p.category_id) === 2 && Number(p.stock) > 0).length,
-        with_stock_count: result.rows.filter(p => Number(p.stock) > 0).length
-      }
-    });
-  } catch (error) {
-    console.error('Debug products error:', error);
-    res.status(500).json({ error: 'Failed to fetch debug products' });
-  }
-});
-
+module.exports = app;
