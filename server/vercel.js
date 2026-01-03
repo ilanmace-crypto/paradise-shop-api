@@ -18,6 +18,11 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use(express.static('.'));
 
+// Root route handler - serve index.html
+app.get('/', (req, res) => {
+  res.sendFile('index.html', { root: '.' });
+});
+
 // Health check с проверкой Neon БД
 app.get('/health', async (req, res) => {
   try {

@@ -1,1 +1,35 @@
-{"version": 2, "builds": [{"src": "server/vercel.js", "use": "@vercel/node"}], "routes": [{"src": "/api/(.*)", "dest": "/server/vercel.js"}, {"src": "/admin/(.*)", "dest": "/server/vercel.js"}, {"src": "/health", "dest": "/server/vercel.js"}, {"src": "/(.*)", "dest": "/server/vercel.js"}]}
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server/vercel.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/server/vercel.js"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/server/vercel.js"
+    },
+    {
+      "src": "/health",
+      "dest": "/server/vercel.js"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/server/vercel.js"
+    }
+  ]
+}
