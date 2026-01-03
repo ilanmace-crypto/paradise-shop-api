@@ -480,7 +480,9 @@ function ReviewsPlaceholder() {
 }
 
 function MainApp() {
-  const [loading, setLoading] = useState(true)
+  console.log('MainApp component mounted!');
+  
+  const [loading, setLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('liquids')
   const [activeProduct, setActiveProduct] = useState(null)
@@ -510,6 +512,7 @@ function MainApp() {
 
   // Загрузка товаров с API
   useEffect(() => {
+    console.log('useEffect for products loading triggered!');
     const loadProducts = async (retryCount = 0) => {
       try {
         console.log('Starting to load products, attempt:', retryCount + 1);
