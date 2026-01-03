@@ -7,6 +7,15 @@ const pool = require('./config/neon');
 
 const app = express();
 
+// Set CSP headers
+app.use((req, res, next) => {
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.telegram.org; worker-src 'self' blob:;"
+  );
+  next();
+});
+
 app.use(cors({
   origin: true,
   credentials: true
