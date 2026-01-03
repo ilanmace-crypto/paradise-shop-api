@@ -402,3 +402,30 @@ app.delete('/admin/products/:id', async (req, res) => {
   }
 });
 
+
+// GET /admin/products - get all products for admin
+app.get('/admin/products', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*, c.name as category_name
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      ORDER BY p.created_at DESC
+    `);
+    
+    // Получаем вкусы для каждого товара
+    for (let product of result.rows) {
+      const flavors = await pool.query(
+        'SELECT * FROM product_flavors WHERE product_id = $1 ORDER BY flavor_name',
+        [product.id]
+      );
+      product.flavors = flavors.rows;
+    }
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Admin products error:', error);
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
