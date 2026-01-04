@@ -2,8 +2,24 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-// Подключаем Neon базу данных
-const pool = require('./config/neon');
+// Подключаем Neon базу данных с обработкой ошибок
+let pool;
+try {
+  pool = require('./config/neon');
+} catch (error) {
+  console.error('Database connection error:', error);
+  // Создаем mock pool если БД недоступна
+  pool = {
+    query: async (text, params) => {
+      console.log('Mock query:', text, params);
+      return { rows: [] };
+    },
+    connect: async () => ({
+      query: pool.query,
+      release: () => {}
+    })
+  };
+}
 
 const app = express();
 
@@ -44,6 +60,25 @@ app.get('*', (req, res) => {
     return res.status(404).json({ error: 'Route not found' });
   }
   res.sendFile('index.html', { root: '.' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+  });
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
 });
 
 // Health check с проверкой Neon БД
