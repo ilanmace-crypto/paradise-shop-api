@@ -532,8 +532,16 @@ function MainApp() {
 
               const flavors = Array.isArray(p.flavors)
                 ? p.flavors
-                  .map((f) => (typeof f === 'string' ? f : (f.flavor_name || f.name)))
-                  .filter(Boolean)
+                  .map((f) => {
+                    if (typeof f === 'string') {
+                      return { flavor_name: f, stock: 0 }
+                    }
+                    return {
+                      flavor_name: f?.flavor_name || f?.name || '',
+                      stock: Number(f?.stock ?? 0),
+                    }
+                  })
+                  .filter((f) => f?.flavor_name)
                 : []
 
               return {
