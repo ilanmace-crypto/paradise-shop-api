@@ -559,3 +559,4 @@ if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
     console.log(`API debug: http://localhost:${PORT}/api/debug`);
   });
 }
+// Force redeploy Sun Jan  4 10:55:55 +03 2026
