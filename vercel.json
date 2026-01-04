@@ -2,22 +2,22 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/vercel.js",
+      "src": "server/vercel-simple.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "/server/vercel.js"
+      "dest": "/server/vercel-simple.js"
     },
     {
       "src": "/admin/(.*)",
-      "dest": "/server/vercel.js"
+      "dest": "/server/vercel-simple.js"
     },
     {
       "src": "/health",
-      "dest": "/server/vercel.js"
+      "dest": "/server/vercel-simple.js"
     },
     {
       "src": "/assets/(.*)",
@@ -29,7 +29,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/server/vercel.js"
+      "dest": "/server/vercel-simple.js"
     }
   ]
 }
