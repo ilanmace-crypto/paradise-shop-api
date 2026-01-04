@@ -3,7 +3,15 @@
   "builds": [
     {
       "src": "server/vercel-simple.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "index.html",
+          "vite.svg",
+          "assets/**",
+          "public/**"
+        ]
+      }
     }
   ],
   "routes": [

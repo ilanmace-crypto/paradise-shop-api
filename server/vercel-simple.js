@@ -37,8 +37,15 @@ app.use(express.json());
 
 // Serve static files from root
 app.use(express.static(path.join(projectRoot, 'public')));
+app.use(
+  '/assets',
+  express.static(path.join(projectRoot, 'assets'), {
+    setHeaders: (res) => {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    },
+  })
+);
 app.use(express.static(projectRoot));
-app.use('/assets', express.static(path.join(projectRoot, 'assets')));
 
 // Favicon handler
 app.get('/favicon.ico', (req, res) => {
@@ -52,6 +59,7 @@ app.get('/vite.svg', (req, res) => {
 
 // Root route handler - serve index.html
 app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   res.sendFile(path.join(projectRoot, 'index.html'));
 });
 
@@ -421,10 +429,16 @@ app.delete('/admin/products/:id', requireAdminAuth, (req, res) => {
 
 // Catch-all handler for React Router
 app.get(/.*/, (req, res) => {
+  // Never serve index.html for missing static assets
+  if (req.path.startsWith('/assets/')) {
+    return res.status(404).end();
+  }
+
   // Don't intercept API routes
   if (req.path.startsWith('/api') || req.path.startsWith('/admin') || req.path === '/health') {
     return res.status(404).json({ error: 'Route not found' });
   }
+  res.setHeader('Cache-Control', 'no-store');
   res.sendFile(path.join(projectRoot, 'index.html'));
 });
 
