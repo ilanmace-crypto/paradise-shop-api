@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
  const path = require('path');
  const crypto = require('crypto');
+ const fs = require('fs');
  require('dotenv').config();
 
  // Neon Postgres pool
@@ -10,6 +11,46 @@ const cors = require('cors');
 const app = express();
 
  const projectRoot = path.join(__dirname, '..');
+
+ const renderIndexHtml = (res) => {
+  try {
+    const assetsDir = path.join(projectRoot, 'assets');
+    const files = fs.existsSync(assetsDir) ? fs.readdirSync(assetsDir) : [];
+
+    const jsCandidates = files.filter((f) => /^index-.*\.js$/.test(f)).sort();
+    const cssCandidates = files.filter((f) => /^index-.*\.css$/.test(f)).sort();
+
+    const jsFile = jsCandidates[jsCandidates.length - 1] || null;
+    const cssFile = cssCandidates[cssCandidates.length - 1] || null;
+
+    if (!jsFile || !cssFile) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.sendFile(path.join(projectRoot, 'index.html'));
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(
+      `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>PARADISE-SHOP</title>
+    <script type="module" crossorigin src="/assets/${jsFile}"></script>
+    <link rel="stylesheet" crossorigin href="/assets/${cssFile}">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`
+    );
+  } catch (error) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.sendFile(path.join(projectRoot, 'index.html'));
+  }
+ };
 
  const requireAdminAuth = (req, res, next) => {
   const auth = req.headers.authorization || '';
@@ -59,8 +100,7 @@ app.get('/vite.svg', (req, res) => {
 
 // Root route handler - serve index.html
 app.get('/', (req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  res.sendFile(path.join(projectRoot, 'index.html'));
+  return renderIndexHtml(res);
 });
 
 // Health check
@@ -438,8 +478,7 @@ app.get(/.*/, (req, res) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/admin') || req.path === '/health') {
     return res.status(404).json({ error: 'Route not found' });
   }
-  res.setHeader('Cache-Control', 'no-store');
-  res.sendFile(path.join(projectRoot, 'index.html'));
+  return renderIndexHtml(res);
 });
 
 // Global error handler
