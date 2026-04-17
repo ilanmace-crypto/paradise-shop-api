@@ -99,28 +99,24 @@ const renderIndexHtml = (res) => {
 // API Routes
 
 // Debug endpoint
-app.get('/api/debug', (req, res) => {
+app.get('/api/debug', async (req, res) => {
+  let dbStatus = 'checking...';
+  try {
+    await pool.query('SELECT 1');
+    dbStatus = 'connected';
+  } catch (e) {
+    dbStatus = `error: ${e.message}`;
+  }
+
   res.json({
     message: 'Debug working',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'unknown',
-    vercel: {
-      gitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || 'unknown',
-      gitCommitMessage: process.env.VERCEL_GIT_COMMIT_MESSAGE || 'unknown',
-      gitCommitRef: process.env.VERCEL_GIT_COMMIT_REF || 'unknown',
-      gitRepoSlug: process.env.VERCEL_GIT_REPO_SLUG || 'unknown',
-      gitRepoOwner: process.env.VERCEL_GIT_REPO_OWNER || 'unknown',
-      region: process.env.VERCEL_REGION || 'unknown',
-      url: process.env.VERCEL_URL || 'unknown',
-    },
-    runtime: {
-      node: process.version,
-      pid: process.pid,
-      cwd: process.cwd(),
-    },
     db: {
-      hasDatabaseUrl: !!process.env.DATABASE_URL,
-      databaseUrlSet: !!process.env.DATABASE_URL,
+      status: dbStatus,
+      hasUrl: !!process.env.DATABASE_URL
+    },
+    vercel: {
+      sha: process.env.VERCEL_GIT_COMMIT_SHA || 'unknown'
     }
   });
 });
