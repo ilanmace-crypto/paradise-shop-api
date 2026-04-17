@@ -1,0 +1,16 @@
+{
+  "name": "paradise-shop",
+  "version": "1.0.0",
+  "description": "Paradise Shop - Vape liquids and consumables",
+  "scripts": {
+    "dev": "npm run dev:client & npm run dev:server",
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "cd server && nodemon vercel-simple.js",
+    "build": "cd client && npm run build",
+    "deploy": "npm run build && git add . && git commit -m 'Deploy' && git push origin main"
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ]
+}
