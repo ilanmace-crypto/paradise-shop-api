@@ -343,17 +343,31 @@ app.post('/api/orders', async (req, res) => {
   }
 });
 
-// Admin routes
+// Admin routes auth helper
 const adminAuth = (req, res, next) => {
   const auth = req.headers.authorization;
-  if (!auth || auth !== 'Basic ' + Buffer.from('admin:paradise251208').toString('base64')) {
+  const expectedAuth = 'Basic ' + Buffer.from('admin:paradise251208').toString('base64');
+  
+  if (!auth || auth !== expectedAuth) {
+    console.log('Admin auth failed');
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
 };
 
+// Handle Admin Login (explicit endpoint for frontend)
+app.post('/api/admin/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === 'admin' && password === 'paradise251208') {
+    const token = Buffer.from('admin:paradise251208').toString('base64');
+    res.json({ success: true, token });
+  } else {
+    res.status(401).json({ error: 'Invalid credentials' });
+  }
+});
+
 // Get all products (admin)
-app.get('/admin/products', adminAuth, async (req, res) => {
+app.get('/api/admin/products', adminAuth, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -377,6 +391,19 @@ app.get('/admin/products', adminAuth, async (req, res) => {
       ORDER BY p.created_at DESC
     `);
 
+    // Add image data if exists
+    for (const product of result.rows) {
+      try {
+        const imgRes = await pool.query('SELECT mime_type, data FROM product_images WHERE product_id = $1', [product.id]);
+        if (imgRes.rows.length > 0) {
+          const row = imgRes.rows[0];
+          product.image_url = `data:${row.mime_type};base64,${row.data}`;
+        }
+      } catch (e) {
+        console.error('Error fetching admin product image:', e);
+      }
+    }
+
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching admin products:', error);
@@ -385,7 +412,7 @@ app.get('/admin/products', adminAuth, async (req, res) => {
 });
 
 // Create product (admin)
-app.post('/admin/products', adminAuth, async (req, res) => {
+app.post('/api/admin/products', adminAuth, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -455,7 +482,7 @@ app.post('/admin/products', adminAuth, async (req, res) => {
 });
 
 // Update product (admin)
-app.put('/admin/products/:id', adminAuth, async (req, res) => {
+app.put('/api/admin/products/:id', adminAuth, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -530,7 +557,7 @@ app.put('/admin/products/:id', adminAuth, async (req, res) => {
 });
 
 // Delete product (admin)
-app.delete('/admin/products/:id', adminAuth, async (req, res) => {
+app.delete('/api/admin/products/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
