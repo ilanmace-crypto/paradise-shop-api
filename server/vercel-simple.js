@@ -558,8 +558,8 @@ app.get('/vite.svg', (req, res) => {
   res.sendFile(path.join(projectRoot, 'client/dist/vite.svg'));
 });
 
-// SPA fallback
-app.get('*', (req, res) => {
+// SPA fallback - must be last
+app.use((req, res) => {
   renderIndexHtml(res);
 });
 
